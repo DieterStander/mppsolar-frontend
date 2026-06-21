@@ -64,24 +64,12 @@ function fmt(v, dp) {
   if (v == null || isNaN(v)) return '—';
   return Number(v).toFixed(dp);
 }
-// decimal comma display (inverter values are entered with periods on the wire)
-const commaize = (s) => String(s).replace(/\./g, ',');
-const parseDec = (s) => {
-  if (s == null) return null;
-  const t = String(s).trim().replace(',', '.');
-  if (t === '') return null;
-  const n = Number(t);
-  return isNaN(n) ? null : n;
-};
 // human-readable list of every value a setting accepts
 function allowedText(s) {
   if (s.type === 'flag') return 'Options: Enable / Disable';
-  if (s.type === 'enum') {
-    const isV = s.unit === 'V';
-    return 'Options: ' + s.options.map((o) => (isV ? commaize(o.label) : o.label)).join(', ');
-  }
+  if (s.type === 'enum') return 'Options: ' + s.options.map((o) => o.label).join(', ');
   if (s.type === 'number') {
-    const f = (n) => commaize(Number(n).toFixed(1));
+    const f = (n) => Number(n).toFixed(1);
     let t = `Range: ${f(s.minimum)}–${f(s.maximum)}`;
     if (s.unit) t += ` ${s.unit}`;
     if (s.step) t += ` · ${f(s.step)} steps`;
@@ -541,8 +529,6 @@ function renderSetting(s) {
   // constraint note lives in the head so the control stays pinned to the bottom
   if (note) head.append(el('div', { class: 'cur note' }, note));
 
-  const isV = s.unit === 'V';
-
   // control block (pinned to the bottom of the card so every selector aligns)
   const body = el('div', { class: 'setting-body' });
   if (s.type === 'flag') {
@@ -556,12 +542,11 @@ function renderSetting(s) {
     });
     body.append(el('label', { class: 'toggle' }, [input, el('span', { class: 'track' }), stateLbl]));
   } else if (s.type === 'enum') {
-    const curLabel = labelFor(s, s.current);
-    body.append(el('div', { class: 'cur' }, 'Current: ' + (isV ? commaize(curLabel) : curLabel)));
+    body.append(el('div', { class: 'cur' }, 'Current: ' + labelFor(s, s.current)));
     const sel = el('select');
     sel.disabled = !enabled;
     for (const o of options) {
-      const opt = el('option', { value: o.value }, isV ? commaize(o.label) : o.label);
+      const opt = el('option', { value: o.value }, o.label);
       if (String(chosen) === String(o.value)) opt.selected = true;
       sel.append(opt);
     }
@@ -570,12 +555,18 @@ function renderSetting(s) {
     sel.addEventListener('change', () => setPending(s, sel.value, card));
     body.append(sel);
   } else if (s.type === 'number') {
-    const curTxt = s.current == null ? '—' : commaize(Number(s.current).toFixed(1)) + ' ' + s.unit;
-    body.append(el('div', { class: 'cur' }, 'Current: ' + curTxt));
+    body.append(el('div', { class: 'cur' }, 'Current: ' + (s.current == null ? '—' : s.current + ' ' + s.unit)));
+    // text (not number) input so the decimal always shows as a period,
+    // regardless of the browser's locale; a typed comma is converted to a period.
     const input = el('input', { type: 'text', inputmode: 'decimal', class: 'num-input',
-      value: chosen == null ? '' : commaize(String(chosen)) });
+      value: chosen == null ? '' : String(chosen) });
     input.disabled = !enabled;
-    input.addEventListener('input', () => setPending(s, parseDec(input.value), card));
+    input.addEventListener('input', () => {
+      const norm = input.value.replace(',', '.');
+      if (norm !== input.value) input.value = norm;
+      const n = norm === '' ? null : Number(norm);
+      setPending(s, (n == null || isNaN(n)) ? null : n, card);
+    });
     body.append(input);
   }
 
@@ -625,11 +616,7 @@ function updateActionBar() {
 function diffRows(items) {
   return items.map(({ key, value }) => {
     const s = state.settings.find((x) => x.key === key) || { label: key, type: 'enum', options: [] };
-    const disp = (v) => {
-      if (s.type === 'flag') return v ? 'Enabled' : 'Disabled';
-      const l = labelFor(s, v);
-      return s.unit === 'V' ? commaize(l) : l;
-    };
+    const disp = (v) => (s.type === 'flag' ? (v ? 'Enabled' : 'Disabled') : labelFor(s, v));
     const from = disp(s.current);
     const to = disp(value);
     return el('div', { class: 'diff-row' }, [

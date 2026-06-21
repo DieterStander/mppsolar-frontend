@@ -266,7 +266,7 @@ _requires_user = {"requires_key": "battery_type", "requires_value": USER_BATTERY
 BULK_VOLTAGE = Setting(
     key="bulk_charge_voltage", label="Bulk / C.V. Charge Voltage", group="Battery Voltages",
     type="number", command="PCVV", prog="26", unit="V", minimum=25.0, maximum=30.0, step=0.1,
-    help="Constant-voltage (absorb) charge target. Factory default 28.2 V. Adjustable only with Battery Type = User-defined.",
+    help="Constant-voltage (absorb) charge target. Factory default 28,2 V. Adjustable only with Battery Type = User-defined.",
     depends=_requires_user, _suffix=_voltage_suffix, _regex=r"PCVV\d\d\.\d",
     _read=_number_reader("Battery Bulk Charge Voltage"),
 )
@@ -274,7 +274,7 @@ BULK_VOLTAGE = Setting(
 FLOAT_VOLTAGE = Setting(
     key="float_charge_voltage", label="Float Charge Voltage", group="Battery Voltages",
     type="number", command="PBFT", prog="27", unit="V", minimum=25.0, maximum=30.0, step=0.1,
-    help="Float (maintenance) charge voltage. Factory default 27.0 V. Adjustable only with Battery Type = User-defined.",
+    help="Float (maintenance) charge voltage. Factory default 27,0 V. Adjustable only with Battery Type = User-defined.",
     depends=_requires_user, _suffix=_voltage_suffix, _regex=r"PBFT\d\d\.\d",
     _read=_number_reader("Battery Float Charge Voltage"),
 )
@@ -282,7 +282,7 @@ FLOAT_VOLTAGE = Setting(
 CUTOFF_VOLTAGE = Setting(
     key="cutoff_voltage", label="Low-DC Cut-off Voltage", group="Battery Voltages",
     type="number", command="PSDV", prog="29", unit="V", minimum=21.0, maximum=24.0, step=0.1,
-    help="Battery cut-off (low) voltage. Factory default 21.0 V. Adjustable only with Battery Type = User-defined.",
+    help="Battery cut-off (low) voltage. Factory default 21,0 V. Adjustable only with Battery Type = User-defined.",
     depends=_requires_user, _suffix=_voltage_suffix, _regex=r"PSDV\d\d\.\d",
     _read=_number_reader("Battery Under Voltage"),
 )

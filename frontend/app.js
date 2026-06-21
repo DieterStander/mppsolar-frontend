@@ -5,21 +5,20 @@
 // Chart + tile definitions
 // ---------------------------------------------------------------------------
 const CHART_DEFS = [
-  { title: 'Power', unit: 'W', series: [
+  { title: 'Power', unit: 'W', yMin: 0, series: [
       { key: 'pv_input_power', label: 'PV', color: '#f5a623' },
       { key: 'ac_output_active_power', label: 'Load', color: '#4c8dff' },
       { key: 'ac_output_apparent_power', label: 'Apparent', color: '#7a86a3' } ] },
-  { title: 'Battery Voltage', unit: 'V', series: [
+  { title: 'Battery Voltage', unit: 'V', yMin: 20, yMax: 30, series: [
       { key: 'battery_voltage', label: 'Battery', color: '#35c08a' } ] },
-  { title: 'Battery Current', unit: 'A', series: [
-      { key: 'battery_charge_current', label: 'Charge', color: '#35c08a' },
-      { key: 'battery_discharge_current', label: 'Discharge', color: '#f5566c' } ] },
-  { title: 'Battery State of Charge', unit: '%', series: [
+  { title: 'Battery Current', unit: 'A', hint: 'positive = charging · negative = discharging', series: [
+      { key: 'battery_current', label: 'Current', color: '#4c8dff' } ] },
+  { title: 'Battery State of Charge', unit: '%', yMin: 0, yMax: 100, series: [
       { key: 'battery_capacity', label: 'SOC', color: '#4c8dff' } ] },
-  { title: 'AC Voltage', unit: 'V', series: [
+  { title: 'AC Voltage', unit: 'V', yMin: 200, yMax: 250, series: [
       { key: 'ac_input_voltage', label: 'Grid', color: '#f5a623' },
       { key: 'ac_output_voltage', label: 'Output', color: '#4c8dff' } ] },
-  { title: 'Heat-sink Temperature', unit: '°C', series: [
+  { title: 'Heat-sink Temperature', unit: '°C', yMin: 20, yMax: 50, series: [
       { key: 'heatsink_temp', label: 'Temp', color: '#f5566c' } ] },
 ];
 
@@ -64,6 +63,31 @@ function el(tag, attrs = {}, children = []) {
 function fmt(v, dp) {
   if (v == null || isNaN(v)) return '—';
   return Number(v).toFixed(dp);
+}
+// decimal comma display (inverter values are entered with periods on the wire)
+const commaize = (s) => String(s).replace(/\./g, ',');
+const parseDec = (s) => {
+  if (s == null) return null;
+  const t = String(s).trim().replace(',', '.');
+  if (t === '') return null;
+  const n = Number(t);
+  return isNaN(n) ? null : n;
+};
+// human-readable list of every value a setting accepts
+function allowedText(s) {
+  if (s.type === 'flag') return 'Options: Enable / Disable';
+  if (s.type === 'enum') {
+    const isV = s.unit === 'V';
+    return 'Options: ' + s.options.map((o) => (isV ? commaize(o.label) : o.label)).join(', ');
+  }
+  if (s.type === 'number') {
+    const f = (n) => commaize(Number(n).toFixed(1));
+    let t = `Range: ${f(s.minimum)}–${f(s.maximum)}`;
+    if (s.unit) t += ` ${s.unit}`;
+    if (s.step) t += ` · ${f(s.step)} steps`;
+    return t;
+  }
+  return '';
 }
 
 // ---------------------------------------------------------------------------
@@ -142,12 +166,14 @@ function buildCharts() {
     const card = el('div', { class: 'chart-card', title: 'Click to expand' }, [
       el('span', { class: 'expand-hint' }, '⤢'),
       el('h3', {}, `${def.title} (${def.unit})`),
+      def.hint ? el('div', { class: 'chart-hint' }, def.hint) : null,
       el('div', { class: 'legend' }, legendSpans(def)),
       canvas,
     ]);
     card.addEventListener('click', () => openChartModal(def));
     grid.append(card);
-    const chart = new TimeChart(canvas, { series: def.series, unit: def.unit, theme: state.theme });
+    const chart = new TimeChart(canvas, { series: def.series, unit: def.unit,
+      theme: state.theme, yMin: def.yMin, yMax: def.yMax });
     state.charts.push({ def, chart });
   }
 }
@@ -161,7 +187,7 @@ function openChartModal(def) {
   $('#chart-modal').classList.add('open');
   if (state.expandedChart) state.expandedChart.destroy();
   state.expandedChart = new TimeChart($('#chart-modal-canvas'),
-    { series: def.series, unit: def.unit, theme: state.theme });
+    { series: def.series, unit: def.unit, theme: state.theme, yMin: def.yMin, yMax: def.yMax });
   const cutoff = Date.now() / 1000 - state.range;
   state.expandedChart.setData(state.rows.filter((r) => r.ts >= cutoff));
 }
@@ -188,7 +214,14 @@ async function loadHistory() {
   } catch (e) { console.warn('history load failed', e); }
 }
 
-function normalizeRow(s) { return s; } // history rows already flat {ts, metric:val}
+// history rows are already flat {ts, metric:val}; add a derived signed current
+// (charge positive, discharge negative) for the single-line Current chart.
+function normalizeRow(s) { return augmentRow(s); }
+function augmentRow(row) {
+  const c = row.battery_charge_current, d = row.battery_discharge_current;
+  row.battery_current = (c == null && d == null) ? null : (c || 0) - (d || 0);
+  return row;
+}
 
 function refreshCharts() {
   const cutoff = Date.now() / 1000 - state.range;
@@ -198,7 +231,7 @@ function refreshCharts() {
 }
 
 function onSample(ts, values, live) {
-  const row = Object.assign({ ts }, values);
+  const row = augmentRow(Object.assign({ ts }, values));
   state.rows.push(row);
   const cutoff = Date.now() / 1000 - Math.max(state.range, 86400);
   if (state.rows.length > 50000) state.rows = state.rows.filter((r) => r.ts >= cutoff);
@@ -230,23 +263,33 @@ function updateFlow(live) {
     e.classList.toggle('reverse', !!reverse);
   };
 
+  const mode = live.mode;
+  // On this PI30 unit "Line" mode means the mains powers the load directly (the
+  // LCD shows BYPASS) and may charge the battery — there is no separate "Bypass"
+  // mode value. "Battery" means the inverter supplies the load from battery/PV.
+  const utilityLoad = conn && (mode === 'Line' || mode === 'Bypass');   // mains → load (bypass arc)
   const pv = conn && ((v.pv_input_power || 0) > 5 || f.scc_charging);
-  const grid = conn && (live.mode === 'Line' || live.mode === 'Bypass' || f.ac_charging);
   const charging = conn && (v.battery_charge_current || 0) > 0.2;
   const discharging = conn && (v.battery_discharge_current || 0) > 0.2;
-  const load = conn && ((v.ac_output_active_power || 0) > 2 || f.load_on);
-  const bypass = conn && live.mode === 'Bypass';
+  const loadOn = conn && ((v.ac_output_active_power || 0) > 2 || f.load_on);
 
-  setLine('flow-grid-inv', grid, 'acc');
+  // PV and grid never mix. grid→inverter represents the utility *charging* the
+  // battery only; the Line-mode load path is the bypass arc (not the inverter),
+  // so inverter→load lights only when the inverter itself feeds the load.
+  const gridCharging = conn && f.ac_charging;
+  const invToLoad = conn && loadOn && !utilityLoad;
+  const gridActive = utilityLoad || gridCharging;
+
+  setLine('flow-grid-inv', gridCharging, 'acc');
   setLine('flow-pv-inv', pv, 'solar');
-  setLine('flow-inv-load', load, 'acc');
-  setLine('flow-bypass', bypass, 'acc');
+  setLine('flow-inv-load', invToLoad, 'acc');
+  setLine('flow-bypass', utilityLoad, 'acc');
   // inverter↔battery: charging flows down (green); discharging flows up (reverse)
   setLine('flow-inv-bat', charging || discharging, charging ? 'charge' : 'acc', discharging && !charging);
 
   document.getElementById('node-pv').classList.toggle('inactive', !pv);
-  document.getElementById('node-grid').classList.toggle('inactive', !grid);
-  document.getElementById('node-load').classList.toggle('inactive', !load);
+  document.getElementById('node-grid').classList.toggle('inactive', !gridActive);
+  document.getElementById('node-load').classList.toggle('inactive', !loadOn);
   document.getElementById('node-battery').classList.toggle('inactive', !conn);
 
   // live numbers next to each line
@@ -260,9 +303,9 @@ function updateFlow(live) {
     e.setAttribute('class', 'flow-val' + (conn ? (active ? ' ' + cls : ' dim') : ''));
   };
   const battI = discharging ? v.battery_discharge_current : v.battery_charge_current;
-  setVal('flow-val-grid', `${voltv(v.ac_input_voltage)} V`, grid, 'acc');
+  setVal('flow-val-grid', `${voltv(v.ac_input_voltage)} V`, gridActive, 'acc');
   setVal('flow-val-pv', `${numv(v.pv_input_power)} W · ${voltv(v.pv_input_voltage)} V`, pv, 'solar');
-  setVal('flow-val-load', `${numv(v.ac_output_active_power)} W · ${voltv(v.ac_output_voltage)} V`, load, 'acc');
+  setVal('flow-val-load', `${numv(v.ac_output_active_power)} W · ${voltv(v.ac_output_voltage)} V`, loadOn, 'acc');
   setVal('flow-val-bat', `${numv(battI, 1)} A · ${voltv(v.battery_voltage)} V`, charging || discharging, charging ? 'charge' : 'acc');
 
   const soc = v.battery_capacity;
@@ -493,8 +536,12 @@ function renderSetting(s) {
   if (changed) name.append(el('span', { class: 'changed-pill' }, 'changed'));
   const head = el('div', { class: 'setting-head' }, [name]);
   if (s.help) head.append(el('div', { class: 'help' }, s.help));
+  const allowed = allowedText(s);
+  if (allowed) head.append(el('div', { class: 'help allowed' }, allowed));
   // constraint note lives in the head so the control stays pinned to the bottom
   if (note) head.append(el('div', { class: 'cur note' }, note));
+
+  const isV = s.unit === 'V';
 
   // control block (pinned to the bottom of the card so every selector aligns)
   const body = el('div', { class: 'setting-body' });
@@ -509,11 +556,12 @@ function renderSetting(s) {
     });
     body.append(el('label', { class: 'toggle' }, [input, el('span', { class: 'track' }), stateLbl]));
   } else if (s.type === 'enum') {
-    body.append(el('div', { class: 'cur' }, 'Current: ' + labelFor(s, s.current)));
+    const curLabel = labelFor(s, s.current);
+    body.append(el('div', { class: 'cur' }, 'Current: ' + (isV ? commaize(curLabel) : curLabel)));
     const sel = el('select');
     sel.disabled = !enabled;
     for (const o of options) {
-      const opt = el('option', { value: o.value }, o.label);
+      const opt = el('option', { value: o.value }, isV ? commaize(o.label) : o.label);
       if (String(chosen) === String(o.value)) opt.selected = true;
       sel.append(opt);
     }
@@ -522,11 +570,12 @@ function renderSetting(s) {
     sel.addEventListener('change', () => setPending(s, sel.value, card));
     body.append(sel);
   } else if (s.type === 'number') {
-    body.append(el('div', { class: 'cur' }, 'Current: ' + (s.current == null ? '—' : s.current + ' ' + s.unit)));
-    const input = el('input', { type: 'number', step: s.step ?? 0.1,
-      min: s.minimum ?? '', max: s.maximum ?? '', value: chosen ?? '' });
+    const curTxt = s.current == null ? '—' : commaize(Number(s.current).toFixed(1)) + ' ' + s.unit;
+    body.append(el('div', { class: 'cur' }, 'Current: ' + curTxt));
+    const input = el('input', { type: 'text', inputmode: 'decimal', class: 'num-input',
+      value: chosen == null ? '' : commaize(String(chosen)) });
     input.disabled = !enabled;
-    input.addEventListener('input', () => setPending(s, input.value === '' ? null : Number(input.value), card));
+    input.addEventListener('input', () => setPending(s, parseDec(input.value), card));
     body.append(input);
   }
 
@@ -576,8 +625,13 @@ function updateActionBar() {
 function diffRows(items) {
   return items.map(({ key, value }) => {
     const s = state.settings.find((x) => x.key === key) || { label: key, type: 'enum', options: [] };
-    const from = s.type === 'flag' ? (s.current ? 'Enabled' : 'Disabled') : labelFor(s, s.current);
-    const to = s.type === 'flag' ? (value ? 'Enabled' : 'Disabled') : labelFor(s, value);
+    const disp = (v) => {
+      if (s.type === 'flag') return v ? 'Enabled' : 'Disabled';
+      const l = labelFor(s, v);
+      return s.unit === 'V' ? commaize(l) : l;
+    };
+    const from = disp(s.current);
+    const to = disp(value);
     return el('div', { class: 'diff-row' }, [
       el('span', {}, s.label),
       el('span', {}, [el('span', { class: 'from' }, String(from)), ' → ',

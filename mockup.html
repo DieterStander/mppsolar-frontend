@@ -131,6 +131,7 @@ main { padding: 20px; max-width: 1280px; margin: 0 auto; }
 .chart-card .expand-hint { position: absolute; top: 12px; right: 14px; color: var(--text-dim); opacity: .45; font-size: 15px; }
 .chart-card:hover .expand-hint { opacity: .9; color: var(--accent); }
 .chart-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.chart-card .chart-hint { font-size: 11px; color: var(--text-dim); margin: -2px 0 6px; }
 .chart-card .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; font-size: 12px; color: var(--text-dim); }
 .chart-card .legend span { display: inline-flex; align-items: center; gap: 6px; }
 .chart-card .legend i { width: 11px; height: 3px; border-radius: 2px; display: inline-block; }
@@ -190,10 +191,11 @@ main { padding: 20px; max-width: 1280px; margin: 0 auto; }
 .setting-body { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 .setting .cur { font-size: 12px; color: var(--text-dim); }
 .setting .cur.note { color: var(--warn); margin-top: 6px; }
-.setting select, .setting input[type=number] {
+.setting select, .setting input.num-input {
   width: 100%; background: var(--bg-elev2); color: var(--text); border: 1px solid var(--border);
   border-radius: 8px; padding: 8px 10px; font-size: 14px;
 }
+.setting .allowed { font-size: 11px; margin-top: 5px; }
 .toggle { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; }
 .toggle input { display: none; }
 .toggle .track { width: 40px; height: 22px; border-radius: 999px; background: var(--bg-elev2); border: 1px solid var(--border); position: relative; transition: .15s; }
@@ -470,7 +472,7 @@ label.inline { display: inline-flex; align-items: center; gap: 7px; color: var(-
  */
 (function () {
   const METRICS = [{"key": "battery_voltage", "label": "Battery Voltage", "unit": "V"}, {"key": "battery_capacity", "label": "Battery SOC", "unit": "%"}, {"key": "battery_charge_current", "label": "Charge Current", "unit": "A"}, {"key": "battery_discharge_current", "label": "Discharge Current", "unit": "A"}, {"key": "pv_input_power", "label": "PV Power", "unit": "W"}, {"key": "pv_input_voltage", "label": "PV Voltage", "unit": "V"}, {"key": "ac_output_active_power", "label": "Load Power", "unit": "W"}, {"key": "ac_output_apparent_power", "label": "Apparent Power", "unit": "VA"}, {"key": "ac_output_load", "label": "Load", "unit": "%"}, {"key": "ac_output_voltage", "label": "Output Voltage", "unit": "V"}, {"key": "ac_input_voltage", "label": "Grid Voltage", "unit": "V"}, {"key": "heatsink_temp", "label": "Heat-sink Temp", "unit": "\u00b0C"}];
-  const SETTINGS_VIEW = [{"key": "output_source_priority", "label": "Output Priority", "group": "Operation & Charging", "type": "enum", "command": "POP", "prog": "01", "help": "Which source powers the loads first.", "unit": "", "options": [{"value": "00", "label": "Utility first"}, {"value": "01", "label": "Solar first"}, {"value": "02", "label": "SBU (Solar / Battery / Utility)"}], "minimum": null, "maximum": null, "step": null, "advanced": false, "depends": {}, "current": "02"}, {"key": "grid_working_range", "label": "AC Input Range", "group": "Operation, Charging & Battery", "type": "enum", "command": "PGR", "prog": "03", "help": "Acceptable AC-in window. Appliance = 90\u2013280 VAC; UPS = 170\u2013280 VAC (stricter).", "unit": "", "options": [{"value": "00", "label": "Appliance (90\u2013280 V)"}, {"value": "01", "label": "UPS (170\u2013280 V)"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": "00"}, {"key": "output_frequency", "label": "Output Frequency", "group": "Operation, Charging & Battery", "type": "enum", "command": "F", "prog": "09", "help": "AC output frequency.", "unit": "Hz", "options": [{"value": "50", "label": "50 Hz"}, {"value": "60", "label": "60 Hz"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": "50"}, {"key": "charger_source_priority", "label": "Charger Source Priority", "group": "Operation & Charging", "type": "enum", "command": "PCP", "prog": "16", "help": "Which source is allowed to charge the battery.", "unit": "", "options": [{"value": "00", "label": "Utility first"}, {"value": "01", "label": "Solar first"}, {"value": "02", "label": "Solar + Utility"}, {"value": "03", "label": "Only Solar"}], "minimum": null, "maximum": null, "step": null, "advanced": false, "depends": {}, "current": "02"}, {"key": "max_charge_current", "label": "Max Combined Charge Current", "group": "Operation, Charging & Battery", "type": "enum", "command": "MCHGC", "prog": "02", "help": "Maximum total battery charging current (solar + utility).", "unit": "A", "options": [{"value": "10", "label": "10 A"}, {"value": "20", "label": "20 A"}, {"value": "30", "label": "30 A"}, {"value": "40", "label": "40 A"}, {"value": "50", "label": "50 A"}, {"value": "60", "label": "60 A"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": "40"}, {"key": "max_utility_charge_current", "label": "Max Utility Charge Current", "group": "Operation, Charging & Battery", "type": "enum", "command": "MUCHGC", "prog": "11", "help": "Maximum charging current drawn from utility. Cannot exceed the combined charge current (Prog 02).", "unit": "A", "options": [{"value": "2", "label": "2 A"}, {"value": "10", "label": "10 A"}, {"value": "20", "label": "20 A"}, {"value": "30", "label": "30 A"}, {"value": "40", "label": "40 A"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {"max_from": "max_charge_current"}, "current": "20"}, {"key": "battery_type", "label": "Battery Type", "group": "Operation, Charging & Battery", "type": "enum", "command": "PBT", "prog": "05", "help": "Battery chemistry preset. 'User-defined' unlocks the custom charge voltages (Prog 26/27/29).", "unit": "", "options": [{"value": "00", "label": "AGM"}, {"value": "01", "label": "Flooded"}, {"value": "02", "label": "User-defined"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": "02"}, {"key": "recharge_voltage", "label": "Back-to-Utility Voltage", "group": "Battery Voltages", "type": "enum", "command": "PBCV", "prog": "12", "help": "In Solar/SBU modes, battery voltage at which the inverter switches back to utility (low-battery cut-over).", "unit": "V", "options": [{"value": "22.0", "label": "22.0 V"}, {"value": "22.5", "label": "22.5 V"}, {"value": "23.0", "label": "23.0 V"}, {"value": "23.5", "label": "23.5 V"}, {"value": "24.0", "label": "24.0 V"}, {"value": "24.5", "label": "24.5 V"}, {"value": "25.0", "label": "25.0 V"}, {"value": "25.5", "label": "25.5 V"}], "minimum": null, "maximum": null, "step": null, "advanced": false, "depends": {}, "current": "23.0"}, {"key": "redischarge_voltage", "label": "Back-to-Battery Voltage", "group": "Battery Voltages", "type": "enum", "command": "PBDV", "prog": "13", "help": "In Solar/SBU modes, battery voltage at which the inverter disconnects from utility. 'Full' = wait until fully charged.", "unit": "V", "options": [{"value": "00.0", "label": "Full (float)"}, {"value": "24.0", "label": "24.0 V"}, {"value": "24.5", "label": "24.5 V"}, {"value": "25.0", "label": "25.0 V"}, {"value": "25.5", "label": "25.5 V"}, {"value": "26.0", "label": "26.0 V"}, {"value": "26.5", "label": "26.5 V"}, {"value": "27.0", "label": "27.0 V"}, {"value": "27.5", "label": "27.5 V"}, {"value": "28.0", "label": "28.0 V"}, {"value": "28.5", "label": "28.5 V"}, {"value": "29.0", "label": "29.0 V"}], "minimum": null, "maximum": null, "step": null, "advanced": false, "depends": {}, "current": "00.0"}, {"key": "bulk_charge_voltage", "label": "Bulk / C.V. Charge Voltage", "group": "Battery Voltages", "type": "number", "command": "PCVV", "prog": "26", "help": "Constant-voltage (absorb) charge target. Factory default 28.2 V. Adjustable only with Battery Type = User-defined.", "unit": "V", "options": [], "minimum": 25.0, "maximum": 30.0, "step": 0.1, "advanced": false, "depends": {"requires_key": "battery_type", "requires_value": "02"}, "current": 28.2}, {"key": "float_charge_voltage", "label": "Float Charge Voltage", "group": "Battery Voltages", "type": "number", "command": "PBFT", "prog": "27", "help": "Float (maintenance) charge voltage. Factory default 27.0 V. Adjustable only with Battery Type = User-defined.", "unit": "V", "options": [], "minimum": 25.0, "maximum": 30.0, "step": 0.1, "advanced": false, "depends": {"requires_key": "battery_type", "requires_value": "02"}, "current": 27.0}, {"key": "cutoff_voltage", "label": "Low-DC Cut-off Voltage", "group": "Battery Voltages", "type": "number", "command": "PSDV", "prog": "29", "help": "Battery cut-off (low) voltage. Factory default 21.0 V. Adjustable only with Battery Type = User-defined.", "unit": "V", "options": [], "minimum": 21.0, "maximum": 24.0, "step": 0.1, "advanced": false, "depends": {"requires_key": "battery_type", "requires_value": "02"}, "current": 21.0}, {"key": "overload_restart", "label": "Auto-Restart on Overload", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "06", "help": "Enable or disable: Auto-Restart on Overload.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": false}, {"key": "overtemp_restart", "label": "Auto-Restart on Over-Temperature", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "07", "help": "Enable or disable: Auto-Restart on Over-Temperature.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "buzzer", "label": "Alarm / Buzzer", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "18", "help": "Enable or disable: Alarm / Buzzer.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "lcd_timeout", "label": "Auto-Return to Default Screen (1 min)", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "19", "help": "Enable or disable: Auto-Return to Default Screen (1 min).", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "backlight", "label": "LCD Backlight", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "20", "help": "Enable or disable: LCD Backlight.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "source_interrupt_alarm", "label": "Primary Source Interrupt Beep", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "22", "help": "Enable or disable: Primary Source Interrupt Beep.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "overload_bypass", "label": "Overload Bypass", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "23", "help": "Enable or disable: Overload Bypass.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": false}, {"key": "fault_record", "label": "Fault Code Recording", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "25", "help": "Enable or disable: Fault Code Recording.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}];
+  const SETTINGS_VIEW = [{"key": "output_source_priority", "label": "Output Priority", "group": "Operation & Charging", "type": "enum", "command": "POP", "prog": "01", "help": "Which source powers the loads first.", "unit": "", "options": [{"value": "00", "label": "Utility first"}, {"value": "01", "label": "Solar first"}, {"value": "02", "label": "SBU (Solar / Battery / Utility)"}], "minimum": null, "maximum": null, "step": null, "advanced": false, "depends": {}, "current": "02"}, {"key": "grid_working_range", "label": "AC Input Range", "group": "Operation, Charging & Battery", "type": "enum", "command": "PGR", "prog": "03", "help": "Acceptable AC-in window. Appliance = 90\u2013280 VAC; UPS = 170\u2013280 VAC (stricter).", "unit": "", "options": [{"value": "00", "label": "Appliance (90\u2013280 V)"}, {"value": "01", "label": "UPS (170\u2013280 V)"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": "00"}, {"key": "output_frequency", "label": "Output Frequency", "group": "Operation, Charging & Battery", "type": "enum", "command": "F", "prog": "09", "help": "AC output frequency.", "unit": "Hz", "options": [{"value": "50", "label": "50 Hz"}, {"value": "60", "label": "60 Hz"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": "50"}, {"key": "charger_source_priority", "label": "Charger Source Priority", "group": "Operation & Charging", "type": "enum", "command": "PCP", "prog": "16", "help": "Which source is allowed to charge the battery.", "unit": "", "options": [{"value": "00", "label": "Utility first"}, {"value": "01", "label": "Solar first"}, {"value": "02", "label": "Solar + Utility"}, {"value": "03", "label": "Only Solar"}], "minimum": null, "maximum": null, "step": null, "advanced": false, "depends": {}, "current": "02"}, {"key": "max_charge_current", "label": "Max Combined Charge Current", "group": "Operation, Charging & Battery", "type": "enum", "command": "MCHGC", "prog": "02", "help": "Maximum total battery charging current (solar + utility).", "unit": "A", "options": [{"value": "10", "label": "10 A"}, {"value": "20", "label": "20 A"}, {"value": "30", "label": "30 A"}, {"value": "40", "label": "40 A"}, {"value": "50", "label": "50 A"}, {"value": "60", "label": "60 A"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": "40"}, {"key": "max_utility_charge_current", "label": "Max Utility Charge Current", "group": "Operation, Charging & Battery", "type": "enum", "command": "MUCHGC", "prog": "11", "help": "Maximum charging current drawn from utility. Cannot exceed the combined charge current (Prog 02).", "unit": "A", "options": [{"value": "2", "label": "2 A"}, {"value": "10", "label": "10 A"}, {"value": "20", "label": "20 A"}, {"value": "30", "label": "30 A"}, {"value": "40", "label": "40 A"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {"max_from": "max_charge_current"}, "current": "20"}, {"key": "battery_type", "label": "Battery Type", "group": "Operation, Charging & Battery", "type": "enum", "command": "PBT", "prog": "05", "help": "Battery chemistry preset. 'User-defined' unlocks the custom charge voltages (Prog 26/27/29).", "unit": "", "options": [{"value": "00", "label": "AGM"}, {"value": "01", "label": "Flooded"}, {"value": "02", "label": "User-defined"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": "02"}, {"key": "recharge_voltage", "label": "Back-to-Utility Voltage", "group": "Battery Voltages", "type": "enum", "command": "PBCV", "prog": "12", "help": "In Solar/SBU modes, battery voltage at which the inverter switches back to utility (low-battery cut-over).", "unit": "V", "options": [{"value": "22.0", "label": "22.0 V"}, {"value": "22.5", "label": "22.5 V"}, {"value": "23.0", "label": "23.0 V"}, {"value": "23.5", "label": "23.5 V"}, {"value": "24.0", "label": "24.0 V"}, {"value": "24.5", "label": "24.5 V"}, {"value": "25.0", "label": "25.0 V"}, {"value": "25.5", "label": "25.5 V"}], "minimum": null, "maximum": null, "step": null, "advanced": false, "depends": {}, "current": "23.0"}, {"key": "redischarge_voltage", "label": "Back-to-Battery Voltage", "group": "Battery Voltages", "type": "enum", "command": "PBDV", "prog": "13", "help": "In Solar/SBU modes, battery voltage at which the inverter disconnects from utility. 'Full' = wait until fully charged.", "unit": "V", "options": [{"value": "00.0", "label": "Full (float)"}, {"value": "24.0", "label": "24.0 V"}, {"value": "24.5", "label": "24.5 V"}, {"value": "25.0", "label": "25.0 V"}, {"value": "25.5", "label": "25.5 V"}, {"value": "26.0", "label": "26.0 V"}, {"value": "26.5", "label": "26.5 V"}, {"value": "27.0", "label": "27.0 V"}, {"value": "27.5", "label": "27.5 V"}, {"value": "28.0", "label": "28.0 V"}, {"value": "28.5", "label": "28.5 V"}, {"value": "29.0", "label": "29.0 V"}], "minimum": null, "maximum": null, "step": null, "advanced": false, "depends": {}, "current": "00.0"}, {"key": "bulk_charge_voltage", "label": "Bulk / C.V. Charge Voltage", "group": "Battery Voltages", "type": "number", "command": "PCVV", "prog": "26", "help": "Constant-voltage (absorb) charge target. Factory default 28,2 V. Adjustable only with Battery Type = User-defined.", "unit": "V", "options": [], "minimum": 25.0, "maximum": 30.0, "step": 0.1, "advanced": false, "depends": {"requires_key": "battery_type", "requires_value": "02"}, "current": 28.2}, {"key": "float_charge_voltage", "label": "Float Charge Voltage", "group": "Battery Voltages", "type": "number", "command": "PBFT", "prog": "27", "help": "Float (maintenance) charge voltage. Factory default 27,0 V. Adjustable only with Battery Type = User-defined.", "unit": "V", "options": [], "minimum": 25.0, "maximum": 30.0, "step": 0.1, "advanced": false, "depends": {"requires_key": "battery_type", "requires_value": "02"}, "current": 27.0}, {"key": "cutoff_voltage", "label": "Low-DC Cut-off Voltage", "group": "Battery Voltages", "type": "number", "command": "PSDV", "prog": "29", "help": "Battery cut-off (low) voltage. Factory default 21,0 V. Adjustable only with Battery Type = User-defined.", "unit": "V", "options": [], "minimum": 21.0, "maximum": 24.0, "step": 0.1, "advanced": false, "depends": {"requires_key": "battery_type", "requires_value": "02"}, "current": 21.0}, {"key": "overload_restart", "label": "Auto-Restart on Overload", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "06", "help": "Enable or disable: Auto-Restart on Overload.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": false}, {"key": "overtemp_restart", "label": "Auto-Restart on Over-Temperature", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "07", "help": "Enable or disable: Auto-Restart on Over-Temperature.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "buzzer", "label": "Alarm / Buzzer", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "18", "help": "Enable or disable: Alarm / Buzzer.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "lcd_timeout", "label": "Auto-Return to Default Screen (1 min)", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "19", "help": "Enable or disable: Auto-Return to Default Screen (1 min).", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "backlight", "label": "LCD Backlight", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "20", "help": "Enable or disable: LCD Backlight.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "source_interrupt_alarm", "label": "Primary Source Interrupt Beep", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "22", "help": "Enable or disable: Primary Source Interrupt Beep.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "overload_bypass", "label": "Overload Bypass", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "23", "help": "Enable or disable: Overload Bypass.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": false}, {"key": "fault_record", "label": "Fault Code Recording", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "25", "help": "Enable or disable: Fault Code Recording.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}];
 
   let profiles = [
     { id: 1, name: 'Solar only (daytime)', description: 'Run loads from solar/battery, charge from solar only.',
@@ -513,9 +515,10 @@ label.inline { display: inline-flex; align-items: center; gap: 7px; color: var(-
   }
   function liveState(t) {
     const v = genValues(t);
+    const mode = v.battery_discharge_current > 0 ? 'Battery' : 'Line';
     return {
       ts: t, connected: true,
-      mode: v.battery_discharge_current > 0 ? 'Battery' : 'Line',
+      mode,
       values: v,
       flags: { load_on: true, charging_on: v.battery_charge_current > 0, ac_charging: false,
                scc_charging: v.pv_input_power > 0, charging_to_float: false },
@@ -645,6 +648,8 @@ label.inline { display: inline-flex; align-items: center; gap: 7px; color: var(-
       this.ctx = canvas.getContext('2d');
       this.series = opts.series || [];
       this.unit = opts.unit || '';
+      this.yMin = opts.yMin == null ? null : opts.yMin;
+      this.yMax = opts.yMax == null ? null : opts.yMax;
       this.theme = THEMES[opts.theme || 'dark'];
       this.rows = [];
       this.hover = null;
@@ -722,6 +727,8 @@ label.inline { display: inline-flex; align-items: center; gap: 7px; color: var(-
       const pad = (max - min) * 0.08;
       min -= pad; max += pad;
       if (min > 0 && min < (max - min)) min = 0; // anchor to zero when sensible
+      if (this.yMin != null) min = this.yMin;    // fixed axis bounds when provided
+      if (this.yMax != null) max = this.yMax;
 
       const xOf = (t) => padL + ((t - t0) / tSpan) * plotW;
       const yOf = (v) => padT + plotH - ((v - min) / (max - min)) * plotH;
@@ -736,6 +743,12 @@ label.inline { display: inline-flex; align-items: center; gap: 7px; color: var(-
         ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
         ctx.fillText(fmtNum(v), padL - 6, y);
       }
+      // emphasised zero line when the axis spans negative → positive
+      if (min < 0 && max > 0) {
+        const yz = yOf(0);
+        ctx.save(); ctx.strokeStyle = T.axis; ctx.globalAlpha = 0.55;
+        ctx.beginPath(); ctx.moveTo(padL, yz); ctx.lineTo(w - padR, yz); ctx.stroke(); ctx.restore();
+      }
 
       // x time labels
       ctx.textAlign = 'center';
@@ -747,7 +760,9 @@ label.inline { display: inline-flex; align-items: center; gap: 7px; color: var(-
         ctx.fillText(fmtTime(t, tSpan), x, h - padB + 11);
       }
 
-      // series lines
+      // series lines (clipped to the plot so fixed-range outliers don't spill)
+      ctx.save();
+      ctx.beginPath(); ctx.rect(padL, padT, plotW, plotH); ctx.clip();
       ctx.lineWidth = 1.8;
       ctx.lineJoin = 'round';
       for (const s of this.series) {
@@ -762,6 +777,7 @@ label.inline { display: inline-flex; align-items: center; gap: 7px; color: var(-
         }
         ctx.stroke();
       }
+      ctx.restore();
 
       // hover crosshair + tooltip
       if (this.hover && this.hover.x >= padL && this.hover.x <= w - padR) {
@@ -853,21 +869,20 @@ label.inline { display: inline-flex; align-items: center; gap: 7px; color: var(-
 // Chart + tile definitions
 // ---------------------------------------------------------------------------
 const CHART_DEFS = [
-  { title: 'Power', unit: 'W', series: [
+  { title: 'Power', unit: 'W', yMin: 0, series: [
       { key: 'pv_input_power', label: 'PV', color: '#f5a623' },
       { key: 'ac_output_active_power', label: 'Load', color: '#4c8dff' },
       { key: 'ac_output_apparent_power', label: 'Apparent', color: '#7a86a3' } ] },
-  { title: 'Battery Voltage', unit: 'V', series: [
+  { title: 'Battery Voltage', unit: 'V', yMin: 20, yMax: 30, series: [
       { key: 'battery_voltage', label: 'Battery', color: '#35c08a' } ] },
-  { title: 'Battery Current', unit: 'A', series: [
-      { key: 'battery_charge_current', label: 'Charge', color: '#35c08a' },
-      { key: 'battery_discharge_current', label: 'Discharge', color: '#f5566c' } ] },
-  { title: 'Battery State of Charge', unit: '%', series: [
+  { title: 'Battery Current', unit: 'A', hint: 'positive = charging · negative = discharging', series: [
+      { key: 'battery_current', label: 'Current', color: '#4c8dff' } ] },
+  { title: 'Battery State of Charge', unit: '%', yMin: 0, yMax: 100, series: [
       { key: 'battery_capacity', label: 'SOC', color: '#4c8dff' } ] },
-  { title: 'AC Voltage', unit: 'V', series: [
+  { title: 'AC Voltage', unit: 'V', yMin: 200, yMax: 250, series: [
       { key: 'ac_input_voltage', label: 'Grid', color: '#f5a623' },
       { key: 'ac_output_voltage', label: 'Output', color: '#4c8dff' } ] },
-  { title: 'Heat-sink Temperature', unit: '°C', series: [
+  { title: 'Heat-sink Temperature', unit: '°C', yMin: 20, yMax: 50, series: [
       { key: 'heatsink_temp', label: 'Temp', color: '#f5566c' } ] },
 ];
 
@@ -912,6 +927,31 @@ function el(tag, attrs = {}, children = []) {
 function fmt(v, dp) {
   if (v == null || isNaN(v)) return '—';
   return Number(v).toFixed(dp);
+}
+// decimal comma display (inverter values are entered with periods on the wire)
+const commaize = (s) => String(s).replace(/\./g, ',');
+const parseDec = (s) => {
+  if (s == null) return null;
+  const t = String(s).trim().replace(',', '.');
+  if (t === '') return null;
+  const n = Number(t);
+  return isNaN(n) ? null : n;
+};
+// human-readable list of every value a setting accepts
+function allowedText(s) {
+  if (s.type === 'flag') return 'Options: Enable / Disable';
+  if (s.type === 'enum') {
+    const isV = s.unit === 'V';
+    return 'Options: ' + s.options.map((o) => (isV ? commaize(o.label) : o.label)).join(', ');
+  }
+  if (s.type === 'number') {
+    const f = (n) => commaize(Number(n).toFixed(1));
+    let t = `Range: ${f(s.minimum)}–${f(s.maximum)}`;
+    if (s.unit) t += ` ${s.unit}`;
+    if (s.step) t += ` · ${f(s.step)} steps`;
+    return t;
+  }
+  return '';
 }
 
 // ---------------------------------------------------------------------------
@@ -990,12 +1030,14 @@ function buildCharts() {
     const card = el('div', { class: 'chart-card', title: 'Click to expand' }, [
       el('span', { class: 'expand-hint' }, '⤢'),
       el('h3', {}, `${def.title} (${def.unit})`),
+      def.hint ? el('div', { class: 'chart-hint' }, def.hint) : null,
       el('div', { class: 'legend' }, legendSpans(def)),
       canvas,
     ]);
     card.addEventListener('click', () => openChartModal(def));
     grid.append(card);
-    const chart = new TimeChart(canvas, { series: def.series, unit: def.unit, theme: state.theme });
+    const chart = new TimeChart(canvas, { series: def.series, unit: def.unit,
+      theme: state.theme, yMin: def.yMin, yMax: def.yMax });
     state.charts.push({ def, chart });
   }
 }
@@ -1009,7 +1051,7 @@ function openChartModal(def) {
   $('#chart-modal').classList.add('open');
   if (state.expandedChart) state.expandedChart.destroy();
   state.expandedChart = new TimeChart($('#chart-modal-canvas'),
-    { series: def.series, unit: def.unit, theme: state.theme });
+    { series: def.series, unit: def.unit, theme: state.theme, yMin: def.yMin, yMax: def.yMax });
   const cutoff = Date.now() / 1000 - state.range;
   state.expandedChart.setData(state.rows.filter((r) => r.ts >= cutoff));
 }
@@ -1036,7 +1078,14 @@ async function loadHistory() {
   } catch (e) { console.warn('history load failed', e); }
 }
 
-function normalizeRow(s) { return s; } // history rows already flat {ts, metric:val}
+// history rows are already flat {ts, metric:val}; add a derived signed current
+// (charge positive, discharge negative) for the single-line Current chart.
+function normalizeRow(s) { return augmentRow(s); }
+function augmentRow(row) {
+  const c = row.battery_charge_current, d = row.battery_discharge_current;
+  row.battery_current = (c == null && d == null) ? null : (c || 0) - (d || 0);
+  return row;
+}
 
 function refreshCharts() {
   const cutoff = Date.now() / 1000 - state.range;
@@ -1046,7 +1095,7 @@ function refreshCharts() {
 }
 
 function onSample(ts, values, live) {
-  const row = Object.assign({ ts }, values);
+  const row = augmentRow(Object.assign({ ts }, values));
   state.rows.push(row);
   const cutoff = Date.now() / 1000 - Math.max(state.range, 86400);
   if (state.rows.length > 50000) state.rows = state.rows.filter((r) => r.ts >= cutoff);
@@ -1078,23 +1127,33 @@ function updateFlow(live) {
     e.classList.toggle('reverse', !!reverse);
   };
 
+  const mode = live.mode;
+  // On this PI30 unit "Line" mode means the mains powers the load directly (the
+  // LCD shows BYPASS) and may charge the battery — there is no separate "Bypass"
+  // mode value. "Battery" means the inverter supplies the load from battery/PV.
+  const utilityLoad = conn && (mode === 'Line' || mode === 'Bypass');   // mains → load (bypass arc)
   const pv = conn && ((v.pv_input_power || 0) > 5 || f.scc_charging);
-  const grid = conn && (live.mode === 'Line' || live.mode === 'Bypass' || f.ac_charging);
   const charging = conn && (v.battery_charge_current || 0) > 0.2;
   const discharging = conn && (v.battery_discharge_current || 0) > 0.2;
-  const load = conn && ((v.ac_output_active_power || 0) > 2 || f.load_on);
-  const bypass = conn && live.mode === 'Bypass';
+  const loadOn = conn && ((v.ac_output_active_power || 0) > 2 || f.load_on);
 
-  setLine('flow-grid-inv', grid, 'acc');
+  // PV and grid never mix. grid→inverter represents the utility *charging* the
+  // battery only; the Line-mode load path is the bypass arc (not the inverter),
+  // so inverter→load lights only when the inverter itself feeds the load.
+  const gridCharging = conn && f.ac_charging;
+  const invToLoad = conn && loadOn && !utilityLoad;
+  const gridActive = utilityLoad || gridCharging;
+
+  setLine('flow-grid-inv', gridCharging, 'acc');
   setLine('flow-pv-inv', pv, 'solar');
-  setLine('flow-inv-load', load, 'acc');
-  setLine('flow-bypass', bypass, 'acc');
+  setLine('flow-inv-load', invToLoad, 'acc');
+  setLine('flow-bypass', utilityLoad, 'acc');
   // inverter↔battery: charging flows down (green); discharging flows up (reverse)
   setLine('flow-inv-bat', charging || discharging, charging ? 'charge' : 'acc', discharging && !charging);
 
   document.getElementById('node-pv').classList.toggle('inactive', !pv);
-  document.getElementById('node-grid').classList.toggle('inactive', !grid);
-  document.getElementById('node-load').classList.toggle('inactive', !load);
+  document.getElementById('node-grid').classList.toggle('inactive', !gridActive);
+  document.getElementById('node-load').classList.toggle('inactive', !loadOn);
   document.getElementById('node-battery').classList.toggle('inactive', !conn);
 
   // live numbers next to each line
@@ -1108,9 +1167,9 @@ function updateFlow(live) {
     e.setAttribute('class', 'flow-val' + (conn ? (active ? ' ' + cls : ' dim') : ''));
   };
   const battI = discharging ? v.battery_discharge_current : v.battery_charge_current;
-  setVal('flow-val-grid', `${voltv(v.ac_input_voltage)} V`, grid, 'acc');
+  setVal('flow-val-grid', `${voltv(v.ac_input_voltage)} V`, gridActive, 'acc');
   setVal('flow-val-pv', `${numv(v.pv_input_power)} W · ${voltv(v.pv_input_voltage)} V`, pv, 'solar');
-  setVal('flow-val-load', `${numv(v.ac_output_active_power)} W · ${voltv(v.ac_output_voltage)} V`, load, 'acc');
+  setVal('flow-val-load', `${numv(v.ac_output_active_power)} W · ${voltv(v.ac_output_voltage)} V`, loadOn, 'acc');
   setVal('flow-val-bat', `${numv(battI, 1)} A · ${voltv(v.battery_voltage)} V`, charging || discharging, charging ? 'charge' : 'acc');
 
   const soc = v.battery_capacity;
@@ -1341,8 +1400,12 @@ function renderSetting(s) {
   if (changed) name.append(el('span', { class: 'changed-pill' }, 'changed'));
   const head = el('div', { class: 'setting-head' }, [name]);
   if (s.help) head.append(el('div', { class: 'help' }, s.help));
+  const allowed = allowedText(s);
+  if (allowed) head.append(el('div', { class: 'help allowed' }, allowed));
   // constraint note lives in the head so the control stays pinned to the bottom
   if (note) head.append(el('div', { class: 'cur note' }, note));
+
+  const isV = s.unit === 'V';
 
   // control block (pinned to the bottom of the card so every selector aligns)
   const body = el('div', { class: 'setting-body' });
@@ -1357,11 +1420,12 @@ function renderSetting(s) {
     });
     body.append(el('label', { class: 'toggle' }, [input, el('span', { class: 'track' }), stateLbl]));
   } else if (s.type === 'enum') {
-    body.append(el('div', { class: 'cur' }, 'Current: ' + labelFor(s, s.current)));
+    const curLabel = labelFor(s, s.current);
+    body.append(el('div', { class: 'cur' }, 'Current: ' + (isV ? commaize(curLabel) : curLabel)));
     const sel = el('select');
     sel.disabled = !enabled;
     for (const o of options) {
-      const opt = el('option', { value: o.value }, o.label);
+      const opt = el('option', { value: o.value }, isV ? commaize(o.label) : o.label);
       if (String(chosen) === String(o.value)) opt.selected = true;
       sel.append(opt);
     }
@@ -1370,11 +1434,12 @@ function renderSetting(s) {
     sel.addEventListener('change', () => setPending(s, sel.value, card));
     body.append(sel);
   } else if (s.type === 'number') {
-    body.append(el('div', { class: 'cur' }, 'Current: ' + (s.current == null ? '—' : s.current + ' ' + s.unit)));
-    const input = el('input', { type: 'number', step: s.step ?? 0.1,
-      min: s.minimum ?? '', max: s.maximum ?? '', value: chosen ?? '' });
+    const curTxt = s.current == null ? '—' : commaize(Number(s.current).toFixed(1)) + ' ' + s.unit;
+    body.append(el('div', { class: 'cur' }, 'Current: ' + curTxt));
+    const input = el('input', { type: 'text', inputmode: 'decimal', class: 'num-input',
+      value: chosen == null ? '' : commaize(String(chosen)) });
     input.disabled = !enabled;
-    input.addEventListener('input', () => setPending(s, input.value === '' ? null : Number(input.value), card));
+    input.addEventListener('input', () => setPending(s, parseDec(input.value), card));
     body.append(input);
   }
 
@@ -1424,8 +1489,13 @@ function updateActionBar() {
 function diffRows(items) {
   return items.map(({ key, value }) => {
     const s = state.settings.find((x) => x.key === key) || { label: key, type: 'enum', options: [] };
-    const from = s.type === 'flag' ? (s.current ? 'Enabled' : 'Disabled') : labelFor(s, s.current);
-    const to = s.type === 'flag' ? (value ? 'Enabled' : 'Disabled') : labelFor(s, value);
+    const disp = (v) => {
+      if (s.type === 'flag') return v ? 'Enabled' : 'Disabled';
+      const l = labelFor(s, v);
+      return s.unit === 'V' ? commaize(l) : l;
+    };
+    const from = disp(s.current);
+    const to = disp(value);
     return el('div', { class: 'diff-row' }, [
       el('span', {}, s.label),
       el('span', {}, [el('span', { class: 'from' }, String(from)), ' → ',

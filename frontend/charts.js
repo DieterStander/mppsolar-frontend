@@ -22,6 +22,8 @@
       this.ctx = canvas.getContext('2d');
       this.series = opts.series || [];
       this.unit = opts.unit || '';
+      this.yMin = opts.yMin == null ? null : opts.yMin;
+      this.yMax = opts.yMax == null ? null : opts.yMax;
       this.theme = THEMES[opts.theme || 'dark'];
       this.rows = [];
       this.hover = null;
@@ -99,6 +101,8 @@
       const pad = (max - min) * 0.08;
       min -= pad; max += pad;
       if (min > 0 && min < (max - min)) min = 0; // anchor to zero when sensible
+      if (this.yMin != null) min = this.yMin;    // fixed axis bounds when provided
+      if (this.yMax != null) max = this.yMax;
 
       const xOf = (t) => padL + ((t - t0) / tSpan) * plotW;
       const yOf = (v) => padT + plotH - ((v - min) / (max - min)) * plotH;
@@ -113,6 +117,12 @@
         ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
         ctx.fillText(fmtNum(v), padL - 6, y);
       }
+      // emphasised zero line when the axis spans negative → positive
+      if (min < 0 && max > 0) {
+        const yz = yOf(0);
+        ctx.save(); ctx.strokeStyle = T.axis; ctx.globalAlpha = 0.55;
+        ctx.beginPath(); ctx.moveTo(padL, yz); ctx.lineTo(w - padR, yz); ctx.stroke(); ctx.restore();
+      }
 
       // x time labels
       ctx.textAlign = 'center';
@@ -124,7 +134,9 @@
         ctx.fillText(fmtTime(t, tSpan), x, h - padB + 11);
       }
 
-      // series lines
+      // series lines (clipped to the plot so fixed-range outliers don't spill)
+      ctx.save();
+      ctx.beginPath(); ctx.rect(padL, padT, plotW, plotH); ctx.clip();
       ctx.lineWidth = 1.8;
       ctx.lineJoin = 'round';
       for (const s of this.series) {
@@ -139,6 +151,7 @@
         }
         ctx.stroke();
       }
+      ctx.restore();
 
       // hover crosshair + tooltip
       if (this.hover && this.hover.x >= padL && this.hover.x <= w - padR) {

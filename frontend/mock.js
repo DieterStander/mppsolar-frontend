@@ -47,9 +47,10 @@
   }
   function liveState(t) {
     const v = genValues(t);
+    const mode = v.battery_discharge_current > 0 ? 'Battery' : 'Line';
     return {
       ts: t, connected: true,
-      mode: v.battery_discharge_current > 0 ? 'Battery' : 'Line',
+      mode,
       values: v,
       flags: { load_on: true, charging_on: v.battery_charge_current > 0, ac_charging: false,
                scc_charging: v.pv_input_power > 0, charging_to_float: false },

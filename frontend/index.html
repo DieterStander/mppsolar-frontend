@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inverter Console</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔋</text></svg>" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Inverter Console</h1>
+      <div class="sub" id="device-sub">MPP Solar · PI30</div>
+    </div>
+    <div class="spacer"></div>
+    <span class="mode-badge" id="mode-badge">—</span>
+    <span class="status-pill"><span class="dot" id="conn-dot"></span><span id="conn-text">connecting…</span></span>
+    <button class="icon-btn" id="theme-btn" title="Toggle dark / light">🌙</button>
+  </header>
+
+  <nav class="tabs">
+    <button data-view="dashboard" class="active">Dashboard</button>
+    <button data-view="settings">Settings</button>
+  </nav>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <div class="warning-banner hidden" id="warning-banner"></div>
+
+      <div class="dash-top">
+        <div class="flow-card">
+        <h3>Power Flow</h3>
+        <svg id="flow-svg" viewBox="0 0 440 210" preserveAspectRatio="xMidYMid meet" aria-label="inverter power flow">
+          <!-- bypass path over the top -->
+          <path id="flow-bypass" class="flow-line" d="M92,46 L92,16 L385,16 L385,68" />
+          <text x="238" y="12" class="flow-cap" text-anchor="middle">BYPASS</text>
+          <!-- connectors -->
+          <path id="flow-grid-inv" class="flow-line" d="M96,56 L170,86" />
+          <path id="flow-pv-inv" class="flow-line" d="M96,142 L170,108" />
+          <path id="flow-inv-bat" class="flow-line" d="M210,124 L210,166" />
+          <path id="flow-inv-load" class="flow-line" d="M250,95 L356,95" />
+          <!-- nodes -->
+          <g id="node-grid">
+            <text x="70" y="52" class="flow-icon" text-anchor="middle">🔌</text>
+            <text x="70" y="74" class="flow-node-label" text-anchor="middle">Grid</text>
+          </g>
+          <g id="node-pv">
+            <text x="70" y="142" class="flow-icon" text-anchor="middle">☀️</text>
+            <text x="70" y="164" class="flow-node-label" text-anchor="middle">Solar</text>
+          </g>
+          <rect x="170" y="66" width="80" height="58" rx="9" class="flow-box" />
+          <text x="210" y="99" class="flow-box-label" text-anchor="middle">INVERTER</text>
+          <g id="node-battery">
+            <text x="210" y="184" class="flow-icon" text-anchor="middle">🔋</text>
+          </g>
+          <text id="flow-soc" x="246" y="180" class="flow-soc" text-anchor="start">—</text>
+          <text id="flow-bat-state" x="210" y="203" class="flow-cap" text-anchor="middle"></text>
+          <g id="node-load">
+            <text x="385" y="92" class="flow-icon" text-anchor="middle">💡</text>
+            <text x="385" y="116" class="flow-node-label" text-anchor="middle">Load</text>
+          </g>
+        </svg>
+        </div>
+        <div class="tiles" id="tiles"></div>
+      </div>
+
+      <div class="chart-controls">
+        <div class="range-group" id="range-group">
+          <button data-range="900">15m</button>
+          <button data-range="3600" class="active">1h</button>
+          <button data-range="21600">6h</button>
+          <button data-range="86400">24h</button>
+          <button data-range="172800">48h</button>
+          <button data-range="259200">3d</button>
+          <button data-range="604800">7d</button>
+        </div>
+        <span class="sub muted" id="last-update"></span>
+      </div>
+
+      <div class="charts-grid" id="charts-grid"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="settings-group" id="profiles-section">
+        <div class="section-head">
+          <h2><span class="group-icon">📑</span>Preset Profiles</h2>
+          <span class="sub muted">Apply a saved set of settings in one click.</span>
+          <div class="spacer"></div>
+          <button class="btn primary small" id="new-profile">+ New profile</button>
+        </div>
+        <div class="profile-list" id="profile-list"></div>
+      </div>
+
+      <div class="chart-controls">
+        <button class="btn ghost small" id="refresh-settings">↻ Re-read from inverter</button>
+        <span class="sub muted" id="settings-read-at"></span>
+        <div class="spacer"></div>
+        <button class="btn ghost small" id="save-as-profile">Save changes as profile…</button>
+      </div>
+      <div id="settings-container"></div>
+      <div class="action-bar" id="settings-action-bar" style="display:none">
+        <span class="summary" id="changes-summary">No changes</span>
+        <div class="spacer"></div>
+        <label class="inline"><input type="checkbox" id="save-eeprom" checked /> Save to EEPROM</label>
+        <button class="btn ghost" id="discard-changes">Discard</button>
+        <button class="btn primary" id="review-apply">Review &amp; Apply</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Apply / review modal -->
+  <div class="modal-backdrop" id="apply-modal">
+    <div class="modal">
+      <h2 id="apply-modal-title">Review changes</h2>
+      <div id="apply-diff"></div>
+      <div id="apply-progress" style="display:none"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="apply-cancel">Cancel</button>
+        <button class="btn primary" id="apply-confirm">Apply to inverter</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile editor modal -->
+  <div class="modal-backdrop" id="profile-modal">
+    <div class="modal">
+      <h2 id="profile-modal-title">New profile</h2>
+      <div class="field"><label>Name</label><input type="text" id="profile-name" placeholder="e.g. Grid-charge overnight" /></div>
+      <div class="field"><label>Description</label><textarea id="profile-desc" rows="2" placeholder="Optional notes"></textarea></div>
+      <div class="field"><label>Settings included</label><div id="profile-settings-editor"></div></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="profile-cancel">Cancel</button>
+        <button class="btn primary" id="profile-save">Save profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Expanded chart overlay -->
+  <div class="modal-backdrop" id="chart-modal">
+    <div class="chart-expanded">
+      <div class="chart-expanded-head">
+        <h3 id="chart-modal-title"></h3>
+        <div class="legend" id="chart-modal-legend"></div>
+        <div class="spacer"></div>
+        <div class="range-group" id="range-group-expanded"></div>
+        <button class="icon-btn" id="chart-modal-close" title="Close">✕</button>
+      </div>
+      <canvas id="chart-modal-canvas"></canvas>
+    </div>
+  </div>
+
+  <script src="charts.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

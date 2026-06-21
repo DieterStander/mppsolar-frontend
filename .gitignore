@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Runtime data
+data/
+*.db
+
+# Upstream library — installed via pip/uv on the Pi (kept locally only for reference)
+mpp-solar/
+
+# Editor / agent scaffolding
+.claude/
+memory/
+MEMORY.md
+
+# OS
+.DS_Store
+Thumbs.db

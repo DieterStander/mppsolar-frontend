@@ -1,0 +1,1636 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Inverter Console — Demo</title>
+  <style>
+:root {
+  --bg: #0e1117;
+  --bg-elev: #161b24;
+  --bg-elev2: #1d2430;
+  --border: #273042;
+  --text: #e8ecf3;
+  --text-dim: #8a93a6;
+  --accent: #4c8dff;
+  --accent-dim: #2a4a85;
+  --ok: #35c08a;
+  --warn: #f5a623;
+  --danger: #f5566c;
+  --shadow: 0 2px 14px rgba(0, 0, 0, 0.4);
+  color-scheme: dark;
+}
+[data-theme="light"] {
+  --bg: #f4f6fa;
+  --bg-elev: #ffffff;
+  --bg-elev2: #eef1f7;
+  --border: #d9dfea;
+  --text: #1c2430;
+  --text-dim: #5a6478;
+  --accent: #2f6fe0;
+  --accent-dim: #bcd2ff;
+  --ok: #1c9e72;
+  --warn: #c9820f;
+  --danger: #d83a52;
+  --shadow: 0 2px 14px rgba(20, 30, 60, 0.08);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---- header ---- */
+header {
+  display: flex; align-items: center; gap: 16px;
+  padding: 12px 20px;
+  background: var(--bg-elev);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 20;
+}
+header h1 { font-size: 16px; margin: 0; font-weight: 600; letter-spacing: .2px; }
+header .sub { color: var(--text-dim); font-size: 12px; }
+.spacer { flex: 1; }
+
+.status-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 11px; border-radius: 999px;
+  background: var(--bg-elev2); border: 1px solid var(--border);
+  font-size: 12px; font-weight: 500;
+}
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-dim); }
+.dot.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.dot.bad { background: var(--danger); box-shadow: 0 0 8px var(--danger); }
+
+.mode-badge {
+  padding: 5px 11px; border-radius: 8px; font-size: 12px; font-weight: 600;
+  background: var(--accent-dim); color: var(--text);
+}
+
+.icon-btn {
+  background: var(--bg-elev2); border: 1px solid var(--border); color: var(--text);
+  width: 36px; height: 36px; border-radius: 9px; cursor: pointer; font-size: 16px;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.icon-btn:hover { border-color: var(--accent); }
+
+/* ---- tabs ---- */
+nav.tabs { display: flex; gap: 4px; padding: 0 20px; background: var(--bg-elev);
+  border-bottom: 1px solid var(--border); position: sticky; top: 61px; z-index: 19; }
+nav.tabs button {
+  background: none; border: none; color: var(--text-dim); cursor: pointer;
+  padding: 12px 16px; font-size: 14px; font-weight: 500;
+  border-bottom: 2px solid transparent;
+}
+nav.tabs button.active { color: var(--text); border-bottom-color: var(--accent); }
+nav.tabs button:hover { color: var(--text); }
+
+main { padding: 20px; max-width: 1280px; margin: 0 auto; }
+.view { display: none; }
+.view.active { display: block; }
+
+/* ---- cards / metric tiles ---- */
+/* dashboard top: power-flow diagram on the left (≈half), metrics on the right */
+.dash-top {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 16px; align-items: stretch; margin-bottom: 18px;
+}
+.dash-top .flow-card { margin-bottom: 0; }
+.dash-top .flow-card svg { max-height: 400px; }          /* let the diagram drive the height */
+.dash-top .tiles { grid-template-columns: repeat(2, 1fr); grid-auto-rows: 1fr; height: 100%; }
+.dash-top .tile { display: flex; flex-direction: column; justify-content: center; }
+
+.tiles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tile {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 14px; box-shadow: var(--shadow); min-width: 0;
+}
+.tile .label { color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .tile-icon { margin-right: 5px; font-size: 13px; }
+.tile .value { font-size: 23px; font-weight: 650; margin-top: 4px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tile .value .unit { font-size: 13px; color: var(--text-dim); font-weight: 500; margin-left: 3px; }
+.tile.accent .value { color: var(--accent); }
+.tile.ok .value { color: var(--ok); }
+.tile.warn .value { color: var(--warn); }
+
+/* ---- charts ---- */
+.chart-controls { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.range-group { display: inline-flex; background: var(--bg-elev2); border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+.range-group button { background: none; border: none; color: var(--text-dim); padding: 7px 13px; cursor: pointer; font-size: 13px; }
+.range-group button.active { background: var(--accent); color: #fff; }
+
+.charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr)); gap: 14px; }
+.chart-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 14px; box-shadow: var(--shadow); position: relative; cursor: pointer; }
+.chart-card:hover { border-color: var(--accent); }
+.chart-card .expand-hint { position: absolute; top: 12px; right: 14px; color: var(--text-dim); opacity: .45; font-size: 15px; }
+.chart-card:hover .expand-hint { opacity: .9; color: var(--accent); }
+.chart-card h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.chart-card .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; font-size: 12px; color: var(--text-dim); }
+.chart-card .legend span { display: inline-flex; align-items: center; gap: 6px; }
+.chart-card .legend i { width: 11px; height: 3px; border-radius: 2px; display: inline-block; }
+.chart-card canvas { width: 100%; height: 220px; display: block; }
+
+.warning-banner {
+  background: rgba(245,166,35,.12); border: 1px solid var(--warn); color: var(--warn);
+  border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; font-weight: 500;
+}
+.warning-banner.hidden { display: none; }
+
+/* ---- power-flow diagram ---- */
+.flow-card {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 18px; box-shadow: var(--shadow);
+}
+.flow-card h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
+.flow-card svg { width: 100%; height: auto; max-height: 240px; display: block; }
+.flow-icon { font-size: 27px; }
+.flow-node-label { font-size: 11px; fill: var(--text-dim); }
+.flow-box { fill: var(--bg-elev2); stroke: var(--border); stroke-width: 1.5; }
+.flow-box-label { font-size: 10px; font-weight: 600; letter-spacing: .5px; fill: var(--text-dim); }
+.flow-cap { font-size: 9px; letter-spacing: 1px; fill: var(--text-dim); }
+.flow-cap.charge { fill: var(--ok); }
+.flow-cap.disch { fill: var(--accent); }
+.flow-soc { font-size: 12px; font-weight: 600; fill: var(--text); }
+#node-grid, #node-pv, #node-load, #node-battery { transition: opacity .2s; }
+#node-grid.inactive, #node-pv.inactive, #node-load.inactive, #node-battery.inactive { opacity: .3; }
+
+.flow-line { stroke: var(--border); stroke-width: 3.5; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.flow-line.active { stroke-dasharray: 7 7; animation: flowmove .9s linear infinite; }
+.flow-line.active.acc { stroke: var(--accent); }
+.flow-line.active.solar { stroke: var(--warn); }
+.flow-line.active.charge { stroke: var(--ok); }
+.flow-line.active.reverse { animation-direction: reverse; }
+@keyframes flowmove { from { stroke-dashoffset: 0; } to { stroke-dashoffset: -14; } }
+@media (prefers-reduced-motion: reduce) { .flow-line.active { animation: none; } }
+
+/* ---- settings ---- */
+.settings-group { margin-bottom: 22px; }
+.settings-group h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .6px; color: var(--text-dim); margin: 0 0 10px; }
+.group-icon { margin-right: 7px; font-size: 14px; }
+.settings-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 12px; }
+.setting {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 11px; padding: 13px 15px;
+  display: flex; flex-direction: column;
+}
+.setting.changed { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+.setting .name { font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
+.setting .help { color: var(--text-dim); font-size: 12px; }
+.setting-head { margin-bottom: 12px; }
+.setting-body { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
+.setting .cur { font-size: 12px; color: var(--text-dim); }
+.setting .cur.note { color: var(--warn); margin-top: 6px; }
+.setting select, .setting input[type=number] {
+  width: 100%; background: var(--bg-elev2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 8px 10px; font-size: 14px;
+}
+.toggle { display: inline-flex; align-items: center; gap: 9px; cursor: pointer; }
+.toggle input { display: none; }
+.toggle .track { width: 40px; height: 22px; border-radius: 999px; background: var(--bg-elev2); border: 1px solid var(--border); position: relative; transition: .15s; }
+.toggle .track::after { content: ''; position: absolute; width: 16px; height: 16px; border-radius: 50%; background: var(--text-dim); top: 2px; left: 2px; transition: .15s; }
+.toggle input:checked + .track { background: var(--accent); border-color: var(--accent); }
+.toggle input:checked + .track::after { background: #fff; left: 20px; }
+
+.changed-pill { font-size: 10px; background: var(--accent); color: #fff; border-radius: 6px; padding: 1px 6px; font-weight: 600; }
+
+/* ---- advanced (collapsible) ---- */
+.advanced-section { margin-top: 6px; }
+.advanced-toggle {
+  display: flex; align-items: center; gap: 10px; cursor: pointer; user-select: none;
+  padding: 13px 15px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 11px;
+}
+.advanced-toggle:hover { border-color: var(--accent); }
+.advanced-toggle .chev { color: var(--text-dim); transition: transform .15s; display: inline-block; }
+.advanced-section.open .advanced-toggle .chev { transform: rotate(90deg); }
+.advanced-toggle .adv-title { font-weight: 600; }
+.advanced-body { display: none; margin-top: 16px; }
+.advanced-section.open .advanced-body { display: block; }
+
+/* sticky action bar */
+.action-bar {
+  position: sticky; bottom: 0; margin-top: 18px;
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px;
+  padding: 12px 16px; display: flex; align-items: center; gap: 12px; box-shadow: var(--shadow);
+}
+.action-bar .summary { color: var(--text-dim); }
+
+button.btn { border: none; border-radius: 9px; padding: 9px 16px; font-size: 14px; font-weight: 600; cursor: pointer; }
+button.btn.primary { background: var(--accent); color: #fff; }
+button.btn.primary:disabled { opacity: .45; cursor: not-allowed; }
+button.btn.ghost { background: var(--bg-elev2); color: var(--text); border: 1px solid var(--border); }
+button.btn.danger { background: var(--danger); color: #fff; }
+button.btn.small { padding: 6px 11px; font-size: 13px; }
+
+label.inline { display: inline-flex; align-items: center; gap: 7px; color: var(--text-dim); font-size: 13px; }
+
+/* ---- profiles ---- */
+#profiles-section { border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 22px; }
+.section-head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.section-head h2 { margin: 0; }
+.profile-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr)); gap: 12px; }
+.profile-card { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 12px; padding: 15px; }
+.profile-card h3 { margin: 0 0 4px; font-size: 15px; }
+.profile-card .desc { color: var(--text-dim); font-size: 13px; margin-bottom: 10px; }
+.profile-card .kv { font-size: 12px; color: var(--text-dim); margin-bottom: 4px; }
+.profile-card .actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+/* ---- modal ---- */
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.55); display: none; align-items: center; justify-content: center; z-index: 50; padding: 20px; }
+.modal-backdrop.open { display: flex; }
+.modal { background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px; padding: 22px; width: 100%; max-width: 560px; max-height: 86vh; overflow: auto; box-shadow: var(--shadow); }
+.modal h2 { margin: 0 0 14px; font-size: 18px; }
+.modal .field { margin-bottom: 14px; }
+.modal label { display: block; font-size: 13px; color: var(--text-dim); margin-bottom: 5px; }
+.modal input[type=text], .modal textarea { width: 100%; background: var(--bg-elev2); color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 9px 11px; font-size: 14px; font-family: inherit; }
+.modal .diff-row { display: flex; justify-content: space-between; gap: 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 6px; background: var(--bg-elev2); }
+.modal .diff-row .from { color: var(--text-dim); }
+.modal .diff-row .to { color: var(--accent); font-weight: 600; }
+.modal .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+.step { display: flex; align-items: center; gap: 9px; padding: 7px 0; font-size: 13px; }
+.step .st { width: 18px; text-align: center; }
+.step .st.ok { color: var(--ok); }
+.step .st.failed { color: var(--danger); }
+.step .st.sending { color: var(--warn); }
+.muted { color: var(--text-dim); }
+.empty { color: var(--text-dim); text-align: center; padding: 40px; }
+
+/* ---- expanded chart ---- */
+#chart-modal { padding: 2vh 2vw; }
+.chart-expanded {
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 14px;
+  width: 96vw; height: 92vh; padding: 18px 22px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column;
+}
+.chart-expanded-head { display: flex; align-items: center; gap: 18px; margin-bottom: 12px; }
+.chart-expanded-head h3 { margin: 0; font-size: 17px; }
+.chart-expanded canvas { flex: 1; width: 100%; min-height: 0; display: block; }
+
+/* stack the diagram + metrics once the row gets tight */
+@media (max-width: 860px) {
+  .dash-top { grid-template-columns: 1fr; }
+  .dash-top .tiles { grid-template-columns: repeat(3, 1fr); grid-auto-rows: auto; height: auto; }
+  .dash-top .flow-card svg { max-height: 280px; }
+}
+
+/* ---- phones ---- */
+@media (max-width: 640px) {
+  header { flex-wrap: wrap; gap: 10px 12px; padding: 10px 14px; }
+  header h1 { font-size: 15px; }
+  nav.tabs { top: auto; padding: 0 14px; }
+  main { padding: 14px; }
+
+  .tiles { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tile { padding: 10px 12px; }
+  .tile .value { font-size: 20px; }
+
+  /* range selector: full-width, wrapping, finger-friendly buttons */
+  .chart-controls { gap: 8px; }
+  .range-group { width: 100%; flex-wrap: wrap; background: none; border: none; gap: 6px; }
+  .range-group button {
+    flex: 1 0 auto; min-width: 56px; border: 1px solid var(--border);
+    border-radius: 8px; background: var(--bg-elev2); padding: 9px 0; text-align: center;
+  }
+  .range-group button.active { border-color: var(--accent); }
+
+  .chart-card canvas { height: 200px; }
+  .action-bar { flex-wrap: wrap; }
+}
+
+@media (max-width: 380px) {
+  .dash-top .tiles { grid-template-columns: repeat(2, 1fr); }
+}
+
+</style>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔋</text></svg>" />
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Inverter Console</h1>
+      <div class="sub" id="device-sub">MPP Solar · PI30 · <b style="color:var(--warn)">DEMO (simulated data)</b></div>
+    </div>
+    <div class="spacer"></div>
+    <span class="mode-badge" id="mode-badge">—</span>
+    <span class="status-pill"><span class="dot" id="conn-dot"></span><span id="conn-text">connecting…</span></span>
+    <button class="icon-btn" id="theme-btn" title="Toggle dark / light">🌙</button>
+  </header>
+
+  <nav class="tabs">
+    <button data-view="dashboard" class="active">Dashboard</button>
+    <button data-view="settings">Settings</button>
+  </nav>
+
+  <main>
+    <!-- DASHBOARD -->
+    <section class="view active" id="view-dashboard">
+      <div class="warning-banner hidden" id="warning-banner"></div>
+
+      <div class="dash-top">
+        <div class="flow-card">
+        <h3>Power Flow</h3>
+        <svg id="flow-svg" viewBox="0 0 440 210" preserveAspectRatio="xMidYMid meet" aria-label="inverter power flow">
+          <!-- bypass path over the top -->
+          <path id="flow-bypass" class="flow-line" d="M92,46 L92,16 L385,16 L385,68" />
+          <text x="238" y="12" class="flow-cap" text-anchor="middle">BYPASS</text>
+          <!-- connectors -->
+          <path id="flow-grid-inv" class="flow-line" d="M96,56 L170,86" />
+          <path id="flow-pv-inv" class="flow-line" d="M96,142 L170,108" />
+          <path id="flow-inv-bat" class="flow-line" d="M210,124 L210,166" />
+          <path id="flow-inv-load" class="flow-line" d="M250,95 L356,95" />
+          <!-- nodes -->
+          <g id="node-grid">
+            <text x="70" y="52" class="flow-icon" text-anchor="middle">🔌</text>
+            <text x="70" y="74" class="flow-node-label" text-anchor="middle">Grid</text>
+          </g>
+          <g id="node-pv">
+            <text x="70" y="142" class="flow-icon" text-anchor="middle">☀️</text>
+            <text x="70" y="164" class="flow-node-label" text-anchor="middle">Solar</text>
+          </g>
+          <rect x="170" y="66" width="80" height="58" rx="9" class="flow-box" />
+          <text x="210" y="99" class="flow-box-label" text-anchor="middle">INVERTER</text>
+          <g id="node-battery">
+            <text x="210" y="184" class="flow-icon" text-anchor="middle">🔋</text>
+          </g>
+          <text id="flow-soc" x="246" y="180" class="flow-soc" text-anchor="start">—</text>
+          <text id="flow-bat-state" x="210" y="203" class="flow-cap" text-anchor="middle"></text>
+          <g id="node-load">
+            <text x="385" y="92" class="flow-icon" text-anchor="middle">💡</text>
+            <text x="385" y="116" class="flow-node-label" text-anchor="middle">Load</text>
+          </g>
+        </svg>
+        </div>
+        <div class="tiles" id="tiles"></div>
+      </div>
+
+      <div class="chart-controls">
+        <div class="range-group" id="range-group">
+          <button data-range="900">15m</button>
+          <button data-range="3600" class="active">1h</button>
+          <button data-range="21600">6h</button>
+          <button data-range="86400">24h</button>
+          <button data-range="172800">48h</button>
+          <button data-range="259200">3d</button>
+          <button data-range="604800">7d</button>
+        </div>
+        <span class="sub muted" id="last-update"></span>
+      </div>
+
+      <div class="charts-grid" id="charts-grid"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section class="view" id="view-settings">
+      <div class="settings-group" id="profiles-section">
+        <div class="section-head">
+          <h2><span class="group-icon">📑</span>Preset Profiles</h2>
+          <span class="sub muted">Apply a saved set of settings in one click.</span>
+          <div class="spacer"></div>
+          <button class="btn primary small" id="new-profile">+ New profile</button>
+        </div>
+        <div class="profile-list" id="profile-list"></div>
+      </div>
+
+      <div class="chart-controls">
+        <button class="btn ghost small" id="refresh-settings">↻ Re-read from inverter</button>
+        <span class="sub muted" id="settings-read-at"></span>
+        <div class="spacer"></div>
+        <button class="btn ghost small" id="save-as-profile">Save changes as profile…</button>
+      </div>
+      <div id="settings-container"></div>
+      <div class="action-bar" id="settings-action-bar" style="display:none">
+        <span class="summary" id="changes-summary">No changes</span>
+        <div class="spacer"></div>
+        <label class="inline"><input type="checkbox" id="save-eeprom" checked /> Save to EEPROM</label>
+        <button class="btn ghost" id="discard-changes">Discard</button>
+        <button class="btn primary" id="review-apply">Review &amp; Apply</button>
+      </div>
+    </section>
+  </main>
+
+  <!-- Apply / review modal -->
+  <div class="modal-backdrop" id="apply-modal">
+    <div class="modal">
+      <h2 id="apply-modal-title">Review changes</h2>
+      <div id="apply-diff"></div>
+      <div id="apply-progress" style="display:none"></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="apply-cancel">Cancel</button>
+        <button class="btn primary" id="apply-confirm">Apply to inverter</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile editor modal -->
+  <div class="modal-backdrop" id="profile-modal">
+    <div class="modal">
+      <h2 id="profile-modal-title">New profile</h2>
+      <div class="field"><label>Name</label><input type="text" id="profile-name" placeholder="e.g. Grid-charge overnight" /></div>
+      <div class="field"><label>Description</label><textarea id="profile-desc" rows="2" placeholder="Optional notes"></textarea></div>
+      <div class="field"><label>Settings included</label><div id="profile-settings-editor"></div></div>
+      <div class="modal-actions">
+        <button class="btn ghost" id="profile-cancel">Cancel</button>
+        <button class="btn primary" id="profile-save">Save profile</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Expanded chart overlay -->
+  <div class="modal-backdrop" id="chart-modal">
+    <div class="chart-expanded">
+      <div class="chart-expanded-head">
+        <h3 id="chart-modal-title"></h3>
+        <div class="legend" id="chart-modal-legend"></div>
+        <div class="spacer"></div>
+        <div class="range-group" id="range-group-expanded"></div>
+        <button class="icon-btn" id="chart-modal-close" title="Close">✕</button>
+      </div>
+      <canvas id="chart-modal-canvas"></canvas>
+    </div>
+  </div>
+
+  <script>
+/* Mock backend for the standalone demo build.
+ * Overrides window.fetch and window.WebSocket so the REAL app.js runs unchanged
+ * against a simulated 24 V inverter. Only used by the generated mockup page.
+ */
+(function () {
+  const METRICS = [{"key": "battery_voltage", "label": "Battery Voltage", "unit": "V"}, {"key": "battery_capacity", "label": "Battery SOC", "unit": "%"}, {"key": "battery_charge_current", "label": "Charge Current", "unit": "A"}, {"key": "battery_discharge_current", "label": "Discharge Current", "unit": "A"}, {"key": "pv_input_power", "label": "PV Power", "unit": "W"}, {"key": "pv_input_voltage", "label": "PV Voltage", "unit": "V"}, {"key": "ac_output_active_power", "label": "Load Power", "unit": "W"}, {"key": "ac_output_apparent_power", "label": "Apparent Power", "unit": "VA"}, {"key": "ac_output_load", "label": "Load", "unit": "%"}, {"key": "ac_output_voltage", "label": "Output Voltage", "unit": "V"}, {"key": "ac_input_voltage", "label": "Grid Voltage", "unit": "V"}, {"key": "heatsink_temp", "label": "Heat-sink Temp", "unit": "\u00b0C"}];
+  const SETTINGS_VIEW = [{"key": "output_source_priority", "label": "Output Priority", "group": "Operation & Charging", "type": "enum", "command": "POP", "prog": "01", "help": "Which source powers the loads first.", "unit": "", "options": [{"value": "00", "label": "Utility first"}, {"value": "01", "label": "Solar first"}, {"value": "02", "label": "SBU (Solar / Battery / Utility)"}], "minimum": null, "maximum": null, "step": null, "advanced": false, "depends": {}, "current": "02"}, {"key": "grid_working_range", "label": "AC Input Range", "group": "Operation, Charging & Battery", "type": "enum", "command": "PGR", "prog": "03", "help": "Acceptable AC-in window. Appliance = 90\u2013280 VAC; UPS = 170\u2013280 VAC (stricter).", "unit": "", "options": [{"value": "00", "label": "Appliance (90\u2013280 V)"}, {"value": "01", "label": "UPS (170\u2013280 V)"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": "00"}, {"key": "output_frequency", "label": "Output Frequency", "group": "Operation, Charging & Battery", "type": "enum", "command": "F", "prog": "09", "help": "AC output frequency.", "unit": "Hz", "options": [{"value": "50", "label": "50 Hz"}, {"value": "60", "label": "60 Hz"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": "50"}, {"key": "charger_source_priority", "label": "Charger Source Priority", "group": "Operation & Charging", "type": "enum", "command": "PCP", "prog": "16", "help": "Which source is allowed to charge the battery.", "unit": "", "options": [{"value": "00", "label": "Utility first"}, {"value": "01", "label": "Solar first"}, {"value": "02", "label": "Solar + Utility"}, {"value": "03", "label": "Only Solar"}], "minimum": null, "maximum": null, "step": null, "advanced": false, "depends": {}, "current": "02"}, {"key": "max_charge_current", "label": "Max Combined Charge Current", "group": "Operation, Charging & Battery", "type": "enum", "command": "MCHGC", "prog": "02", "help": "Maximum total battery charging current (solar + utility).", "unit": "A", "options": [{"value": "10", "label": "10 A"}, {"value": "20", "label": "20 A"}, {"value": "30", "label": "30 A"}, {"value": "40", "label": "40 A"}, {"value": "50", "label": "50 A"}, {"value": "60", "label": "60 A"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": "40"}, {"key": "max_utility_charge_current", "label": "Max Utility Charge Current", "group": "Operation, Charging & Battery", "type": "enum", "command": "MUCHGC", "prog": "11", "help": "Maximum charging current drawn from utility. Cannot exceed the combined charge current (Prog 02).", "unit": "A", "options": [{"value": "2", "label": "2 A"}, {"value": "10", "label": "10 A"}, {"value": "20", "label": "20 A"}, {"value": "30", "label": "30 A"}, {"value": "40", "label": "40 A"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {"max_from": "max_charge_current"}, "current": "20"}, {"key": "battery_type", "label": "Battery Type", "group": "Operation, Charging & Battery", "type": "enum", "command": "PBT", "prog": "05", "help": "Battery chemistry preset. 'User-defined' unlocks the custom charge voltages (Prog 26/27/29).", "unit": "", "options": [{"value": "00", "label": "AGM"}, {"value": "01", "label": "Flooded"}, {"value": "02", "label": "User-defined"}], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": "02"}, {"key": "recharge_voltage", "label": "Back-to-Utility Voltage", "group": "Battery Voltages", "type": "enum", "command": "PBCV", "prog": "12", "help": "In Solar/SBU modes, battery voltage at which the inverter switches back to utility (low-battery cut-over).", "unit": "V", "options": [{"value": "22.0", "label": "22.0 V"}, {"value": "22.5", "label": "22.5 V"}, {"value": "23.0", "label": "23.0 V"}, {"value": "23.5", "label": "23.5 V"}, {"value": "24.0", "label": "24.0 V"}, {"value": "24.5", "label": "24.5 V"}, {"value": "25.0", "label": "25.0 V"}, {"value": "25.5", "label": "25.5 V"}], "minimum": null, "maximum": null, "step": null, "advanced": false, "depends": {}, "current": "23.0"}, {"key": "redischarge_voltage", "label": "Back-to-Battery Voltage", "group": "Battery Voltages", "type": "enum", "command": "PBDV", "prog": "13", "help": "In Solar/SBU modes, battery voltage at which the inverter disconnects from utility. 'Full' = wait until fully charged.", "unit": "V", "options": [{"value": "00.0", "label": "Full (float)"}, {"value": "24.0", "label": "24.0 V"}, {"value": "24.5", "label": "24.5 V"}, {"value": "25.0", "label": "25.0 V"}, {"value": "25.5", "label": "25.5 V"}, {"value": "26.0", "label": "26.0 V"}, {"value": "26.5", "label": "26.5 V"}, {"value": "27.0", "label": "27.0 V"}, {"value": "27.5", "label": "27.5 V"}, {"value": "28.0", "label": "28.0 V"}, {"value": "28.5", "label": "28.5 V"}, {"value": "29.0", "label": "29.0 V"}], "minimum": null, "maximum": null, "step": null, "advanced": false, "depends": {}, "current": "00.0"}, {"key": "bulk_charge_voltage", "label": "Bulk / C.V. Charge Voltage", "group": "Battery Voltages", "type": "number", "command": "PCVV", "prog": "26", "help": "Constant-voltage (absorb) charge target. Factory default 28.2 V. Adjustable only with Battery Type = User-defined.", "unit": "V", "options": [], "minimum": 25.0, "maximum": 30.0, "step": 0.1, "advanced": false, "depends": {"requires_key": "battery_type", "requires_value": "02"}, "current": 28.2}, {"key": "float_charge_voltage", "label": "Float Charge Voltage", "group": "Battery Voltages", "type": "number", "command": "PBFT", "prog": "27", "help": "Float (maintenance) charge voltage. Factory default 27.0 V. Adjustable only with Battery Type = User-defined.", "unit": "V", "options": [], "minimum": 25.0, "maximum": 30.0, "step": 0.1, "advanced": false, "depends": {"requires_key": "battery_type", "requires_value": "02"}, "current": 27.0}, {"key": "cutoff_voltage", "label": "Low-DC Cut-off Voltage", "group": "Battery Voltages", "type": "number", "command": "PSDV", "prog": "29", "help": "Battery cut-off (low) voltage. Factory default 21.0 V. Adjustable only with Battery Type = User-defined.", "unit": "V", "options": [], "minimum": 21.0, "maximum": 24.0, "step": 0.1, "advanced": false, "depends": {"requires_key": "battery_type", "requires_value": "02"}, "current": 21.0}, {"key": "overload_restart", "label": "Auto-Restart on Overload", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "06", "help": "Enable or disable: Auto-Restart on Overload.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": false}, {"key": "overtemp_restart", "label": "Auto-Restart on Over-Temperature", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "07", "help": "Enable or disable: Auto-Restart on Over-Temperature.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "buzzer", "label": "Alarm / Buzzer", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "18", "help": "Enable or disable: Alarm / Buzzer.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "lcd_timeout", "label": "Auto-Return to Default Screen (1 min)", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "19", "help": "Enable or disable: Auto-Return to Default Screen (1 min).", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "backlight", "label": "LCD Backlight", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "20", "help": "Enable or disable: LCD Backlight.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "source_interrupt_alarm", "label": "Primary Source Interrupt Beep", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "22", "help": "Enable or disable: Primary Source Interrupt Beep.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}, {"key": "overload_bypass", "label": "Overload Bypass", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "23", "help": "Enable or disable: Overload Bypass.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": false}, {"key": "fault_record", "label": "Fault Code Recording", "group": "Toggles", "type": "flag", "command": "PE/PD", "prog": "25", "help": "Enable or disable: Fault Code Recording.", "unit": "", "options": [], "minimum": null, "maximum": null, "step": null, "advanced": true, "depends": {}, "current": true}];
+
+  let profiles = [
+    { id: 1, name: 'Solar only (daytime)', description: 'Run loads from solar/battery, charge from solar only.',
+      settings: { output_source_priority: '02', charger_source_priority: '03', max_charge_current: '40' },
+      created: 0, updated: 0 },
+    { id: 2, name: 'Grid-charge overnight', description: 'Top the battery up from utility on a cheap tariff.',
+      settings: { output_source_priority: '00', charger_source_priority: '00', max_utility_charge_current: '30' },
+      created: 0, updated: 0 },
+  ];
+  let profileSeq = 3;
+  let jobSeq = 1;
+  const jobs = {};
+  let liveWS = null;
+
+  // ---- simulated telemetry (deterministic in t so history & live align) ----
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  function genValues(t) {
+    const day = ((t % 86400) + 86400) % 86400 / 86400;
+    const sun = Math.max(0, Math.sin((day - 0.25) * Math.PI * 2));
+    let pv = Math.round(sun * 1400 + (sun > 0 ? Math.sin(t / 300) * 70 : 0));
+    pv = Math.max(0, pv);
+    let load = Math.round(340 + Math.sin(t / 600) * 150 + Math.sin(t / 137) * 60);
+    load = Math.max(80, load);
+    const net = pv - load;
+    const soc = Math.round(clamp(72 + Math.sin(t / 4200) * 24, 28, 100));
+    return {
+      battery_voltage: Math.round((25.4 + sun * 1.7 + Math.sin(t / 800) * 0.2) * 10) / 10,
+      battery_capacity: soc,
+      battery_charge_current: net > 0 ? Math.round((net / 27) * 10) / 10 : 0,
+      battery_discharge_current: net < 0 ? Math.round((-net / 27) * 10) / 10 : 0,
+      pv_input_power: pv,
+      pv_input_voltage: pv > 0 ? Math.round((58 + sun * 34) * 10) / 10 : 0,
+      ac_output_active_power: load,
+      ac_output_apparent_power: Math.round(load * 1.18),
+      ac_output_load: Math.round((load / 2000) * 100),
+      ac_output_voltage: 230,
+      ac_input_voltage: 230,
+      heatsink_temp: Math.round(32 + sun * 8 + load / 120),
+    };
+  }
+  function liveState(t) {
+    const v = genValues(t);
+    return {
+      ts: t, connected: true,
+      mode: v.battery_discharge_current > 0 ? 'Battery' : 'Line',
+      values: v,
+      flags: { load_on: true, charging_on: v.battery_charge_current > 0, ac_charging: false,
+               scc_charging: v.pv_input_power > 0, charging_to_float: false },
+      warnings: [], last_error: null,
+    };
+  }
+  const nowS = () => Date.now() / 1000;
+
+  // ---- mock fetch ----------------------------------------------------------
+  const json = (data) => Promise.resolve({ ok: true, status: 200, json: async () => data });
+  window.fetch = function (url, opts) {
+    const u = new URL(url, location.origin);
+    const p = u.pathname, m = (opts && opts.method) || 'GET';
+    if (p === '/api/metrics') return json({ metrics: METRICS });
+    if (p === '/api/live') return json(liveState(nowS()));
+    if (p === '/api/history') {
+      const range = parseInt(u.searchParams.get('range') || '3600', 10);
+      const end = nowS(), step = Math.max(20, Math.round(range / 280));
+      const samples = [];
+      for (let t = end - range; t <= end; t += step) samples.push(Object.assign({ ts: Math.round(t) }, genValues(t)));
+      return json({ samples, metrics: METRICS.map((x) => x.key) });
+    }
+    if (p === '/api/settings') return json({ settings: SETTINGS_VIEW, read_at: nowS() });
+    if (p === '/api/settings/apply' && m === 'POST') {
+      const body = JSON.parse(opts.body);
+      return json(startJob(body.items, body.save));
+    }
+    if (p.startsWith('/api/jobs/')) {
+      const id = p.split('/').pop();
+      return jobs[id] ? json(jobs[id]) : Promise.resolve({ ok: false, status: 404, json: async () => ({ detail: 'not found' }) });
+    }
+    if (p === '/api/profiles' && m === 'GET') return json({ profiles });
+    if (p === '/api/profiles' && m === 'POST') {
+      const b = JSON.parse(opts.body);
+      const pr = { id: profileSeq++, name: b.name, description: b.description || '', settings: b.settings, created: nowS(), updated: nowS() };
+      profiles.push(pr); return json(pr);
+    }
+    const pm = p.match(/^\/api\/profiles\/(\d+)$/);
+    if (pm) {
+      const id = parseInt(pm[1], 10);
+      const idx = profiles.findIndex((x) => x.id === id);
+      if (m === 'DELETE') { profiles = profiles.filter((x) => x.id !== id); return json({ deleted: id }); }
+      if (m === 'PUT') { const b = JSON.parse(opts.body); profiles[idx] = Object.assign({}, profiles[idx], b, { updated: nowS() }); return json(profiles[idx]); }
+    }
+    const ap = p.match(/^\/api\/profiles\/(\d+)\/apply$/);
+    if (ap) {
+      const pr = profiles.find((x) => x.id === parseInt(ap[1], 10));
+      const items = Object.entries(pr.settings).map(([key, value]) => ({ key, value }));
+      const save = u.searchParams.get('save') !== 'false';
+      return json(startJob(items, save));
+    }
+    return Promise.resolve({ ok: false, status: 404, json: async () => ({ detail: 'mock: ' + p }) });
+  };
+
+  function startJob(items, save) {
+    const id = 'job-' + (jobSeq++);
+    const job = { id, status: 'running', started: nowS(), finished: null, save,
+      steps: items.map((it) => ({ key: it.key, value: it.value, command: '', label: labelFor(it.key), status: 'pending', response: null })) };
+    jobs[id] = job;
+    // progress one step at a time, pushing updates over the websocket
+    let i = 0;
+    const tickStep = () => {
+      if (i > 0) job.steps[i - 1].status = 'ok', job.steps[i - 1].response = 'Accepted (ACK)';
+      if (i < job.steps.length) {
+        job.steps[i].status = 'sending';
+        emit({ type: 'job', job });
+        i++;
+        setTimeout(tickStep, 550);
+      } else {
+        job.status = 'completed'; job.finished = nowS();
+        // reflect applied values into the settings view, then "re-read"
+        for (const st of job.steps) {
+          const s = SETTINGS_VIEW.find((x) => x.key === st.key);
+          if (s) s.current = st.value;
+        }
+        emit({ type: 'job', job });
+        emit({ type: 'settings', settings: SETTINGS_VIEW });
+      }
+    };
+    setTimeout(tickStep, 300);
+    return job;
+  }
+  function labelFor(key) { const s = SETTINGS_VIEW.find((x) => x.key === key); return s ? s.label : key; }
+  function emit(msg) { if (liveWS && liveWS.onmessage) liveWS.onmessage({ data: JSON.stringify(msg) }); }
+
+  // ---- mock WebSocket ------------------------------------------------------
+  window.WebSocket = class {
+    constructor(url) {
+      this.url = url; this.readyState = 0; liveWS = this;
+      setTimeout(() => {
+        this.readyState = 1; this.onopen && this.onopen();
+        emit({ type: 'snapshot', live: liveState(nowS()), settings: SETTINGS_VIEW });
+        this._t = setInterval(() => {
+          const t = nowS();
+          emit({ type: 'sample', ts: Math.round(t), values: genValues(t), live: liveState(t) });
+        }, 1500);
+      }, 60);
+    }
+    send() {}
+    close() { clearInterval(this._t); this.onclose && this.onclose(); }
+  };
+})();
+
+</script>
+  <script>
+/* Tiny dependency-free canvas time-series chart.
+ * Designed to stay light on a Raspberry Pi and handle thousands of points.
+ *
+ *   const c = new TimeChart(canvasEl, {
+ *     series: [{key:'pv_input_power', label:'PV', color:'#f5a623', unit:'W'}],
+ *   });
+ *   c.setData(rows);           // rows: [{ts: <seconds>, <key>: <number|null>, ...}]
+ *   c.push({ts, key:val,...}); // append a single point and redraw
+ *   c.setTheme('dark'|'light');
+ */
+(function () {
+  const THEMES = {
+    dark:  { axis: '#8a93a6', grid: 'rgba(255,255,255,0.07)', text: '#c7cedb',
+             tip: 'rgba(20,24,33,0.95)', tipText: '#e8ecf3', tipBorder: 'rgba(255,255,255,0.15)' },
+    light: { axis: '#5a6478', grid: 'rgba(0,0,0,0.08)', text: '#3a4254',
+             tip: 'rgba(255,255,255,0.97)', tipText: '#1c2430', tipBorder: 'rgba(0,0,0,0.15)' },
+  };
+
+  class TimeChart {
+    constructor(canvas, opts) {
+      this.canvas = canvas;
+      this.ctx = canvas.getContext('2d');
+      this.series = opts.series || [];
+      this.unit = opts.unit || '';
+      this.theme = THEMES[opts.theme || 'dark'];
+      this.rows = [];
+      this.hover = null;
+      this.dpr = window.devicePixelRatio || 1;
+
+      this._onMove = (e) => {
+        const r = canvas.getBoundingClientRect();
+        this.hover = { x: e.clientX - r.left, y: e.clientY - r.top };
+        this.draw();
+      };
+      this._onLeave = () => { this.hover = null; this.draw(); };
+      canvas.addEventListener('mousemove', this._onMove);
+      canvas.addEventListener('mouseleave', this._onLeave);
+
+      this._ro = new ResizeObserver(() => this.resize());
+      this._ro.observe(canvas);
+      this.resize();
+    }
+
+    setTheme(name) { this.theme = THEMES[name] || THEMES.dark; this.draw(); }
+    setData(rows) { this.rows = rows || []; this.draw(); }
+    push(row) {
+      this.rows.push(row);
+      this.draw();
+    }
+    trimBefore(ts) { this.rows = this.rows.filter((r) => r.ts >= ts); }
+
+    resize() {
+      const w = this.canvas.clientWidth || 600;
+      const h = this.canvas.clientHeight || 240;
+      this.dpr = window.devicePixelRatio || 1;
+      this.canvas.width = Math.round(w * this.dpr);
+      this.canvas.height = Math.round(h * this.dpr);
+      this.draw();
+    }
+
+    draw() {
+      const ctx = this.ctx, dpr = this.dpr, T = this.theme;
+      const W = this.canvas.width, H = this.canvas.height;
+      ctx.clearRect(0, 0, W, H);
+      ctx.save();
+      ctx.scale(dpr, dpr);
+      const w = W / dpr, h = H / dpr;
+
+      const padL = 48, padR = 12, padT = 24, padB = 22;
+      const plotW = w - padL - padR, plotH = h - padT - padB;
+
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.textBaseline = 'middle';
+
+      const rows = this.rows;
+      if (!rows.length) {
+        ctx.fillStyle = T.text;
+        ctx.textAlign = 'center';
+        ctx.fillText('No data yet…', w / 2, h / 2);
+        ctx.restore();
+        return;
+      }
+
+      const t0 = rows[0].ts, t1 = rows[rows.length - 1].ts;
+      const tSpan = Math.max(1, t1 - t0);
+
+      // y domain across all series
+      let min = Infinity, max = -Infinity;
+      for (const r of rows) {
+        for (const s of this.series) {
+          const v = r[s.key];
+          if (v == null || isNaN(v)) continue;
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+      }
+      if (min === Infinity) { min = 0; max = 1; }
+      if (min === max) { min -= 1; max += 1; }
+      const pad = (max - min) * 0.08;
+      min -= pad; max += pad;
+      if (min > 0 && min < (max - min)) min = 0; // anchor to zero when sensible
+
+      const xOf = (t) => padL + ((t - t0) / tSpan) * plotW;
+      const yOf = (v) => padT + plotH - ((v - min) / (max - min)) * plotH;
+
+      // grid + y labels
+      ctx.strokeStyle = T.grid; ctx.fillStyle = T.text; ctx.lineWidth = 1;
+      ctx.textAlign = 'right';
+      const yTicks = 4;
+      for (let i = 0; i <= yTicks; i++) {
+        const v = min + (i / yTicks) * (max - min);
+        const y = yOf(v);
+        ctx.beginPath(); ctx.moveTo(padL, y); ctx.lineTo(w - padR, y); ctx.stroke();
+        ctx.fillText(fmtNum(v), padL - 6, y);
+      }
+
+      // x time labels
+      ctx.textAlign = 'center';
+      const xTicks = Math.min(6, Math.max(2, Math.floor(plotW / 90)));
+      for (let i = 0; i <= xTicks; i++) {
+        const t = t0 + (i / xTicks) * tSpan;
+        const x = xOf(t);
+        ctx.fillStyle = T.text;
+        ctx.fillText(fmtTime(t, tSpan), x, h - padB + 11);
+      }
+
+      // series lines
+      ctx.lineWidth = 1.8;
+      ctx.lineJoin = 'round';
+      for (const s of this.series) {
+        ctx.strokeStyle = s.color;
+        ctx.beginPath();
+        let pen = false;
+        for (const r of rows) {
+          const v = r[s.key];
+          if (v == null || isNaN(v)) { pen = false; continue; }
+          const x = xOf(r.ts), y = yOf(v);
+          if (!pen) { ctx.moveTo(x, y); pen = true; } else { ctx.lineTo(x, y); }
+        }
+        ctx.stroke();
+      }
+
+      // hover crosshair + tooltip
+      if (this.hover && this.hover.x >= padL && this.hover.x <= w - padR) {
+        const tHover = t0 + ((this.hover.x - padL) / plotW) * tSpan;
+        let idx = 0, best = Infinity;
+        for (let i = 0; i < rows.length; i++) {
+          const d = Math.abs(rows[i].ts - tHover);
+          if (d < best) { best = d; idx = i; }
+        }
+        const r = rows[idx];
+        const hx = xOf(r.ts);
+        ctx.strokeStyle = T.axis; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(hx, padT); ctx.lineTo(hx, padT + plotH); ctx.stroke();
+        ctx.setLineDash([]);
+        for (const s of this.series) {
+          const v = r[s.key];
+          if (v == null || isNaN(v)) continue;
+          ctx.fillStyle = s.color;
+          ctx.beginPath(); ctx.arc(hx, yOf(v), 3, 0, Math.PI * 2); ctx.fill();
+        }
+        this._tooltip(ctx, r, hx, padL, padT, plotW, plotH, w);
+      }
+
+      ctx.restore();
+    }
+
+    _tooltip(ctx, r, hx, padL, padT, plotW, plotH, w) {
+      const T = this.theme;
+      const lines = [fmtFull(r.ts)];
+      for (const s of this.series) {
+        const v = r[s.key];
+        if (v == null || isNaN(v)) continue;
+        lines.push(`${s.label}: ${fmtNum(v)} ${s.unit || this.unit || ''}`.trim());
+      }
+      ctx.font = '11px system-ui, sans-serif';
+      const tw = Math.max(...lines.map((l) => ctx.measureText(l).width)) + 16;
+      const th = lines.length * 15 + 8;
+      let bx = hx + 10;
+      if (bx + tw > padL + plotW) bx = hx - tw - 10;
+      let by = padT + 6;
+      ctx.fillStyle = T.tip; ctx.strokeStyle = T.tipBorder; ctx.lineWidth = 1;
+      roundRect(ctx, bx, by, tw, th, 6); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = T.tipText; ctx.textAlign = 'left';
+      lines.forEach((l, i) => ctx.fillText(l, bx + 8, by + 14 + i * 15));
+    }
+
+    destroy() {
+      this._ro.disconnect();
+      this.canvas.removeEventListener('mousemove', this._onMove);
+      this.canvas.removeEventListener('mouseleave', this._onLeave);
+    }
+  }
+
+  function fmtNum(v) {
+    const a = Math.abs(v);
+    if (a >= 1000) return Math.round(v).toString();
+    if (a >= 100) return v.toFixed(0);
+    if (a >= 10) return v.toFixed(1);
+    return v.toFixed(2);
+  }
+  function pad2(n) { return n < 10 ? '0' + n : '' + n; }
+  function fmtTime(ts, span) {
+    const d = new Date(ts * 1000);
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  }
+  function fmtFull(ts) {
+    const d = new Date(ts * 1000);
+    return pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds());
+  }
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
+
+  window.TimeChart = TimeChart;
+})();
+
+</script>
+  <script>
+'use strict';
+/* Inverter Console - frontend application logic (dependency-free). */
+
+// ---------------------------------------------------------------------------
+// Chart + tile definitions
+// ---------------------------------------------------------------------------
+const CHART_DEFS = [
+  { title: 'Power', unit: 'W', series: [
+      { key: 'pv_input_power', label: 'PV', color: '#f5a623' },
+      { key: 'ac_output_active_power', label: 'Load', color: '#4c8dff' },
+      { key: 'ac_output_apparent_power', label: 'Apparent', color: '#7a86a3' } ] },
+  { title: 'Battery Voltage', unit: 'V', series: [
+      { key: 'battery_voltage', label: 'Battery', color: '#35c08a' } ] },
+  { title: 'Battery Current', unit: 'A', series: [
+      { key: 'battery_charge_current', label: 'Charge', color: '#35c08a' },
+      { key: 'battery_discharge_current', label: 'Discharge', color: '#f5566c' } ] },
+  { title: 'Battery State of Charge', unit: '%', series: [
+      { key: 'battery_capacity', label: 'SOC', color: '#4c8dff' } ] },
+  { title: 'AC Voltage', unit: 'V', series: [
+      { key: 'ac_input_voltage', label: 'Grid', color: '#f5a623' },
+      { key: 'ac_output_voltage', label: 'Output', color: '#4c8dff' } ] },
+  { title: 'Heat-sink Temperature', unit: '°C', series: [
+      { key: 'heatsink_temp', label: 'Temp', color: '#f5566c' } ] },
+];
+
+const TILE_DEFS = [
+  { key: 'battery_voltage', label: 'Battery', unit: 'V', cls: 'accent', dp: 1, icon: '🔋' },
+  { key: 'battery_capacity', label: 'SOC', unit: '%', cls: 'ok', dp: 0, icon: '📊' },
+  { key: 'pv_input_power', label: 'PV Power', unit: 'W', cls: 'warn', dp: 0, icon: '☀️' },
+  { key: 'ac_output_active_power', label: 'Load', unit: 'W', cls: 'accent', dp: 0, icon: '💡' },
+  { key: 'battery_charge_current', label: 'Charge', unit: 'A', cls: 'ok', dp: 1, icon: '⬆️' },
+  { key: 'battery_discharge_current', label: 'Discharge', unit: 'A', cls: '', dp: 1, icon: '⬇️' },
+];
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+const state = {
+  rows: [],            // [{ts, <metric>: value, ...}]
+  range: 3600,
+  charts: [],
+  settings: [],        // catalog + current values
+  pending: {},         // key -> chosen value (only differing ones live here too)
+  profiles: [],
+  theme: localStorage.getItem('theme') || 'dark',
+  applyingJobId: null,
+  expandedChart: null,
+  advancedOpen: false,
+};
+
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+function el(tag, attrs = {}, children = []) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'class') e.className = v;
+    else if (k === 'html') e.innerHTML = v;
+    else if (k.startsWith('on')) e.addEventListener(k.slice(2), v);
+    else if (v != null) e.setAttribute(k, v);
+  }
+  for (const c of [].concat(children)) if (c != null) e.append(c);
+  return e;
+}
+function fmt(v, dp) {
+  if (v == null || isNaN(v)) return '—';
+  return Number(v).toFixed(dp);
+}
+
+// ---------------------------------------------------------------------------
+// API
+// ---------------------------------------------------------------------------
+const api = {
+  metrics: () => fetch('/api/metrics').then((r) => r.json()),
+  history: (range) => fetch(`/api/history?range=${range}`).then((r) => r.json()),
+  settings: (refresh) => fetch(`/api/settings${refresh ? '?refresh=1' : ''}`).then((r) => r.json()),
+  apply: (items, save) => fetch('/api/settings/apply', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items, save }) }).then(handle),
+  job: (id) => fetch(`/api/jobs/${id}`).then((r) => r.json()),
+  profiles: () => fetch('/api/profiles').then((r) => r.json()),
+  createProfile: (b) => fetch('/api/profiles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(handle),
+  updateProfile: (id, b) => fetch(`/api/profiles/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).then(handle),
+  deleteProfile: (id) => fetch(`/api/profiles/${id}`, { method: 'DELETE' }).then(handle),
+  applyProfile: (id, save) => fetch(`/api/profiles/${id}/apply?save=${save}`, { method: 'POST' }).then(handle),
+};
+async function handle(r) {
+  if (!r.ok) { const e = await r.json().catch(() => ({})); throw new Error(e.detail || r.statusText); }
+  return r.json();
+}
+
+// ---------------------------------------------------------------------------
+// Init
+// ---------------------------------------------------------------------------
+async function init() {
+  applyTheme(state.theme);
+  buildTiles();
+  buildCharts();
+  wireUI();
+  await loadHistory();
+  connectWS();
+  loadSettings();
+  loadProfiles();
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  $('#theme-btn').textContent = theme === 'dark' ? '🌙' : '☀️';
+  state.theme = theme;
+  localStorage.setItem('theme', theme);
+  state.charts.forEach((c) => c.chart.setTheme(theme));
+  if (state.expandedChart) state.expandedChart.setTheme(theme);
+}
+
+// ---------------------------------------------------------------------------
+// Dashboard: tiles + charts
+// ---------------------------------------------------------------------------
+function buildTiles() {
+  const wrap = $('#tiles');
+  wrap.innerHTML = '';
+  for (const t of TILE_DEFS) {
+    const tile = el('div', { class: `tile ${t.cls}` }, [
+      el('div', { class: 'label' }, [el('span', { class: 'tile-icon' }, t.icon), t.label]),
+      el('div', { class: 'value', id: `tile-${t.key}` }, [
+        el('span', { class: 'num' }, '—'),
+        el('span', { class: 'unit' }, t.unit),
+      ]),
+    ]);
+    wrap.append(tile);
+  }
+}
+
+function legendSpans(def) {
+  return def.series.map((s) => el('span', {}, [el('i', { style: `background:${s.color}` }), s.label]));
+}
+
+function buildCharts() {
+  const grid = $('#charts-grid');
+  grid.innerHTML = '';
+  state.charts = [];
+  for (const def of CHART_DEFS) {
+    const canvas = el('canvas');
+    const card = el('div', { class: 'chart-card', title: 'Click to expand' }, [
+      el('span', { class: 'expand-hint' }, '⤢'),
+      el('h3', {}, `${def.title} (${def.unit})`),
+      el('div', { class: 'legend' }, legendSpans(def)),
+      canvas,
+    ]);
+    card.addEventListener('click', () => openChartModal(def));
+    grid.append(card);
+    const chart = new TimeChart(canvas, { series: def.series, unit: def.unit, theme: state.theme });
+    state.charts.push({ def, chart });
+  }
+}
+
+function openChartModal(def) {
+  $('#chart-modal-title').textContent = `${def.title} (${def.unit})`;
+  const lg = $('#chart-modal-legend');
+  lg.innerHTML = '';
+  legendSpans(def).forEach((n) => lg.append(n));
+  $('#range-group-expanded').innerHTML = $('#range-group').innerHTML;
+  $('#chart-modal').classList.add('open');
+  if (state.expandedChart) state.expandedChart.destroy();
+  state.expandedChart = new TimeChart($('#chart-modal-canvas'),
+    { series: def.series, unit: def.unit, theme: state.theme });
+  const cutoff = Date.now() / 1000 - state.range;
+  state.expandedChart.setData(state.rows.filter((r) => r.ts >= cutoff));
+}
+
+function closeChartModal() {
+  $('#chart-modal').classList.remove('open');
+  if (state.expandedChart) { state.expandedChart.destroy(); state.expandedChart = null; }
+}
+
+// set the active timespan, syncing every range selector on the page
+function setRange(range) {
+  if (range === state.range) return;
+  state.range = range;
+  $$('.range-group button').forEach((b) =>
+    b.classList.toggle('active', parseInt(b.dataset.range, 10) === range));
+  loadHistory();
+}
+
+async function loadHistory() {
+  try {
+    const data = await api.history(state.range);
+    state.rows = data.samples.map(normalizeRow);
+    refreshCharts();
+  } catch (e) { console.warn('history load failed', e); }
+}
+
+function normalizeRow(s) { return s; } // history rows already flat {ts, metric:val}
+
+function refreshCharts() {
+  const cutoff = Date.now() / 1000 - state.range;
+  const rows = state.rows.filter((r) => r.ts >= cutoff);
+  state.charts.forEach((c) => c.chart.setData(rows));
+  if (state.expandedChart) state.expandedChart.setData(rows);
+}
+
+function onSample(ts, values, live) {
+  const row = Object.assign({ ts }, values);
+  state.rows.push(row);
+  const cutoff = Date.now() / 1000 - Math.max(state.range, 86400);
+  if (state.rows.length > 50000) state.rows = state.rows.filter((r) => r.ts >= cutoff);
+  refreshCharts();
+  updateTiles(values);
+  $('#last-update').textContent = 'Updated ' + new Date(ts * 1000).toLocaleTimeString();
+}
+
+function updateTiles(values) {
+  for (const t of TILE_DEFS) {
+    const node = $(`#tile-${t.key}`);
+    if (!node) continue;
+    node.querySelector('.num').textContent = fmt(values[t.key], t.dp);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Header / status
+// ---------------------------------------------------------------------------
+// drive the power-flow diagram from live values + status flags
+function updateFlow(live) {
+  const v = live.values || {}, f = live.flags || {}, conn = live.connected;
+  const setLine = (id, active, cls, reverse) => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    e.classList.toggle('active', !!(active && conn));
+    ['acc', 'solar', 'charge'].forEach((c) => e.classList.remove(c));
+    if (active && conn && cls) e.classList.add(cls);
+    e.classList.toggle('reverse', !!reverse);
+  };
+
+  const pv = conn && ((v.pv_input_power || 0) > 5 || f.scc_charging);
+  const grid = conn && (live.mode === 'Line' || live.mode === 'Bypass' || f.ac_charging);
+  const charging = conn && (v.battery_charge_current || 0) > 0.2;
+  const discharging = conn && (v.battery_discharge_current || 0) > 0.2;
+  const load = conn && ((v.ac_output_active_power || 0) > 2 || f.load_on);
+  const bypass = conn && live.mode === 'Bypass';
+
+  setLine('flow-grid-inv', grid, 'acc');
+  setLine('flow-pv-inv', pv, 'solar');
+  setLine('flow-inv-load', load, 'acc');
+  setLine('flow-bypass', bypass, 'acc');
+  // inverter↔battery: charging flows down (green); discharging flows up (reverse)
+  setLine('flow-inv-bat', charging || discharging, charging ? 'charge' : 'acc', discharging && !charging);
+
+  document.getElementById('node-pv').classList.toggle('inactive', !pv);
+  document.getElementById('node-grid').classList.toggle('inactive', !grid);
+  document.getElementById('node-load').classList.toggle('inactive', !load);
+  document.getElementById('node-battery').classList.toggle('inactive', !conn);
+
+  const soc = v.battery_capacity;
+  document.getElementById('flow-soc').textContent =
+    (soc == null || isNaN(soc)) ? '—' : Math.round(soc) + '%';
+  const bs = document.getElementById('flow-bat-state');
+  bs.textContent = charging ? 'CHARGING' : discharging ? 'DISCHARGING' : '';
+  bs.setAttribute('class', 'flow-cap ' + (charging ? 'charge' : discharging ? 'disch' : ''));
+}
+
+function updateStatus(live) {
+  const dot = $('#conn-dot'), txt = $('#conn-text');
+  if (live.connected) { dot.className = 'dot ok'; txt.textContent = 'connected'; }
+  else { dot.className = 'dot bad'; txt.textContent = live.last_error ? 'error' : 'no data'; }
+  $('#mode-badge').textContent = live.mode || '—';
+  updateFlow(live);
+  const wb = $('#warning-banner');
+  if (live.warnings && live.warnings.length) {
+    wb.classList.remove('hidden');
+    wb.textContent = '⚠ ' + live.warnings.join(' · ');
+  } else { wb.classList.add('hidden'); }
+  if (live.values) updateTiles(live.values);
+}
+
+// ---------------------------------------------------------------------------
+// WebSocket
+// ---------------------------------------------------------------------------
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  const ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onmessage = (ev) => {
+    const m = JSON.parse(ev.data);
+    if (m.type === 'snapshot') {
+      if (m.live) updateStatus(m.live);
+      if (m.settings && m.settings.length) { state.settings = m.settings; renderSettings(); }
+    } else if (m.type === 'sample') {
+      onSample(m.ts, m.values, m.live);
+      if (m.live) updateStatus(m.live);
+    } else if (m.type === 'status') {
+      updateStatus(m.live);
+    } else if (m.type === 'settings') {
+      state.settings = m.settings; reconcilePending(); renderSettings();
+    } else if (m.type === 'job') {
+      onJobUpdate(m.job);
+    }
+  };
+  ws.onclose = () => setTimeout(connectWS, 2500);
+  ws.onerror = () => ws.close();
+}
+
+// ---------------------------------------------------------------------------
+// Tabs / UI wiring
+// ---------------------------------------------------------------------------
+function wireUI() {
+  $$('nav.tabs button').forEach((b) => b.addEventListener('click', () => {
+    $$('nav.tabs button').forEach((x) => x.classList.remove('active'));
+    $$('.view').forEach((v) => v.classList.remove('active'));
+    b.classList.add('active');
+    $(`#view-${b.dataset.view}`).classList.add('active');
+  }));
+
+  $('#theme-btn').addEventListener('click', () => applyTheme(state.theme === 'dark' ? 'light' : 'dark'));
+
+  // one delegated handler covers the dashboard selector and the expanded one
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('.range-group button');
+    if (btn) setRange(parseInt(btn.dataset.range, 10));
+  });
+
+  $('#refresh-settings').addEventListener('click', () => loadSettings(true));
+  $('#discard-changes').addEventListener('click', () => { state.pending = {}; renderSettings(); });
+  $('#review-apply').addEventListener('click', openApplyModal);
+  $('#save-as-profile').addEventListener('click', () => openProfileModal(null, true));
+
+  $('#chart-modal-close').addEventListener('click', closeChartModal);
+  $('#chart-modal').addEventListener('click', (e) => { if (e.target.id === 'chart-modal') closeChartModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      closeChartModal();
+      $$('.modal-backdrop').forEach((b) => b.classList.remove('open'));
+    }
+  });
+
+  $('#apply-cancel').addEventListener('click', closeApplyModal);
+  $('#new-profile').addEventListener('click', () => openProfileModal(null, false));
+  $('#profile-cancel').addEventListener('click', () => $('#profile-modal').classList.remove('open'));
+  $('#profile-save').addEventListener('click', saveProfile);
+}
+
+// ---------------------------------------------------------------------------
+// Settings
+// ---------------------------------------------------------------------------
+async function loadSettings(refresh) {
+  try {
+    const data = await api.settings(refresh);
+    state.settings = data.settings || [];
+    reconcilePending();
+    renderSettings();
+    if (data.read_at)
+      $('#settings-read-at').textContent = 'Last read ' + new Date(data.read_at * 1000).toLocaleTimeString();
+  } catch (e) { console.warn('settings load failed', e); }
+}
+
+// drop pending edits that now equal the (re-read) current value
+function reconcilePending() {
+  for (const s of state.settings) {
+    if (s.key in state.pending && valuesEqual(s, state.pending[s.key], s.current))
+      delete state.pending[s.key];
+  }
+}
+
+function valuesEqual(setting, a, b) {
+  if (a == null || b == null) return a === b;
+  if (setting.type === 'number') return Number(a) === Number(b);
+  if (setting.type === 'flag') return Boolean(a) === Boolean(b);
+  return String(a) === String(b);
+}
+
+// effective value of a setting = pending edit if present, else current
+function effectiveValue(key) {
+  if (key in state.pending) return state.pending[key];
+  const s = state.settings.find((x) => x.key === key);
+  return s ? s.current : null;
+}
+
+// keys that other settings depend on (changing them re-renders dependents)
+function controllerKeys() {
+  const set = new Set();
+  for (const s of state.settings) {
+    if (s.depends && s.depends.max_from) set.add(s.depends.max_from);
+    if (s.depends && s.depends.requires_key) set.add(s.depends.requires_key);
+  }
+  return set;
+}
+
+// resolve a setting's enabled state + the options it may legally offer right now
+function resolveConstraints(s) {
+  let enabled = true, note = '';
+  let options = s.options || [];
+  if (s.depends && s.depends.requires_key) {
+    const ctl = state.settings.find((x) => x.key === s.depends.requires_key);
+    const ok = String(effectiveValue(s.depends.requires_key)) === String(s.depends.requires_value);
+    if (!ok) {
+      enabled = false;
+      const need = ctl ? ctl.options.find((o) => o.value === s.depends.requires_value) : null;
+      note = `Locked — set ${ctl ? ctl.label : 'the required setting'} to “${need ? need.label : s.depends.requires_value}” to adjust.`;
+    }
+  }
+  if (s.depends && s.depends.max_from) {
+    const cap = Number(effectiveValue(s.depends.max_from));
+    if (!isNaN(cap)) {
+      options = options.filter((o) => Number(o.value) <= cap);
+      note = note || `Limited to ≤ ${cap} A (the combined charge current).`;
+    }
+  }
+  return { enabled, note, options };
+}
+
+function renderSettings() {
+  const container = $('#settings-container');
+  container.innerHTML = '';
+  if (!state.settings.length) {
+    container.append(el('div', { class: 'empty' }, 'No settings loaded yet.'));
+    updateActionBar();
+    return;
+  }
+  // drop pending edits that became invalid (control now locked, or value over cap)
+  for (const s of state.settings) {
+    if (!(s.key in state.pending)) continue;
+    const c = resolveConstraints(s);
+    if (!c.enabled) delete state.pending[s.key];
+    else if (s.type === 'enum' && !c.options.some((o) => String(o.value) === String(state.pending[s.key])))
+      delete state.pending[s.key];
+  }
+  const common = state.settings.filter((s) => !s.advanced);
+  const advanced = state.settings.filter((s) => s.advanced);
+
+  renderGroups(container, common);
+
+  if (advanced.length) {
+    const open = state.advancedOpen;
+    const section = el('div', { class: 'advanced-section' + (open ? ' open' : '') });
+    const body = el('div', { class: 'advanced-body' });
+    renderGroups(body, advanced);
+    const toggle = el('div', { class: 'advanced-toggle' }, [
+      el('span', { class: 'chev' }, '▸'),
+      el('span', { class: 'group-icon' }, '🛠️'),
+      el('span', { class: 'adv-title' }, 'Advanced settings'),
+      el('span', { class: 'muted', style: 'font-size:12px' }, "Defaults you don't normally need to change"),
+    ]);
+    toggle.addEventListener('click', () => {
+      state.advancedOpen = !state.advancedOpen;
+      section.classList.toggle('open', state.advancedOpen);
+    });
+    section.append(toggle, body);
+    container.append(section);
+  }
+  updateActionBar();
+}
+
+const GROUP_ICONS = {
+  'Operation & Charging': '⚡',
+  'Battery Voltages': '🔋',
+  'Operation, Charging & Battery': '⚙️',
+  'Toggles': '🎚️',
+};
+
+function renderGroups(parent, settings) {
+  const groups = {};
+  for (const s of settings) (groups[s.group] = groups[s.group] || []).push(s);
+  for (const [group, items] of Object.entries(groups)) {
+    const grid = el('div', { class: 'settings-grid' });
+    for (const s of items) grid.append(renderSetting(s));
+    const head = el('h2', {}, [el('span', { class: 'group-icon' }, GROUP_ICONS[group] || '•'), group]);
+    parent.append(el('div', { class: 'settings-group' }, [head, grid]));
+  }
+}
+
+function renderSetting(s) {
+  const { enabled, note, options } = resolveConstraints(s);
+  const changed = s.key in state.pending;
+  const chosen = changed ? state.pending[s.key] : s.current;
+  const card = el('div', { class: 'setting' + (changed ? ' changed' : '') });
+  card._setting = s;
+
+  const name = el('div', { class: 'name' }, [s.label]);
+  if (s.prog) name.append(el('span', { class: 'muted', style: 'font-weight:400;font-size:11px' }, `Prog ${s.prog}`));
+  if (changed) name.append(el('span', { class: 'changed-pill' }, 'changed'));
+  const head = el('div', { class: 'setting-head' }, [name]);
+  if (s.help) head.append(el('div', { class: 'help' }, s.help));
+  // constraint note lives in the head so the control stays pinned to the bottom
+  if (note) head.append(el('div', { class: 'cur note' }, note));
+
+  // control block (pinned to the bottom of the card so every selector aligns)
+  const body = el('div', { class: 'setting-body' });
+  if (s.type === 'flag') {
+    const input = el('input', { type: 'checkbox' });
+    input.checked = Boolean(chosen);
+    input.disabled = !enabled;
+    const stateLbl = el('span', { class: 'muted' }, chosen ? 'Enabled' : 'Disabled');
+    input.addEventListener('change', () => {
+      stateLbl.textContent = input.checked ? 'Enabled' : 'Disabled';
+      setPending(s, input.checked, card);
+    });
+    body.append(el('label', { class: 'toggle' }, [input, el('span', { class: 'track' }), stateLbl]));
+  } else if (s.type === 'enum') {
+    body.append(el('div', { class: 'cur' }, 'Current: ' + labelFor(s, s.current)));
+    const sel = el('select');
+    sel.disabled = !enabled;
+    for (const o of options) {
+      const opt = el('option', { value: o.value }, o.label);
+      if (String(chosen) === String(o.value)) opt.selected = true;
+      sel.append(opt);
+    }
+    if (s.current == null || !options.some((o) => String(o.value) === String(s.current)))
+      sel.prepend(el('option', { value: '', disabled: 'true', selected: chosen == null ? 'true' : null }, '— unknown —'));
+    sel.addEventListener('change', () => setPending(s, sel.value, card));
+    body.append(sel);
+  } else if (s.type === 'number') {
+    body.append(el('div', { class: 'cur' }, 'Current: ' + (s.current == null ? '—' : s.current + ' ' + s.unit)));
+    const input = el('input', { type: 'number', step: s.step ?? 0.1,
+      min: s.minimum ?? '', max: s.maximum ?? '', value: chosen ?? '' });
+    input.disabled = !enabled;
+    input.addEventListener('input', () => setPending(s, input.value === '' ? null : Number(input.value), card));
+    body.append(input);
+  }
+
+  card.append(head, body);
+  return card;
+}
+
+function labelFor(s, value) {
+  if (value == null) return '—';
+  const o = (s.options || []).find((o) => String(o.value) === String(value));
+  return o ? o.label : String(value);
+}
+
+// Update pending state and the affected card in place (NO global re-render,
+// so focus is never stolen from a number input while typing).
+function setPending(s, value, card) {
+  const changed = !valuesEqual(s, value, s.current);
+  if (changed) state.pending[s.key] = value;
+  else delete state.pending[s.key];
+  // If other settings depend on this one, re-render so their options/locks
+  // update. These controllers are <select>s, so a re-render is harmless.
+  if (controllerKeys().has(s.key)) { renderSettings(); return; }
+  if (card) {
+    card.classList.toggle('changed', changed);
+    const name = card.querySelector('.name');
+    const pill = name.querySelector('.changed-pill');
+    if (changed && !pill) name.append(el('span', { class: 'changed-pill' }, 'changed'));
+    if (!changed && pill) pill.remove();
+  }
+  updateActionBar();
+}
+
+function pendingItems() {
+  return Object.entries(state.pending).map(([key, value]) => ({ key, value }));
+}
+
+function updateActionBar() {
+  const bar = $('#settings-action-bar');
+  const n = Object.keys(state.pending).length;
+  bar.style.display = n ? 'flex' : 'none';
+  $('#changes-summary').textContent = n ? `${n} change${n > 1 ? 's' : ''} pending` : 'No changes';
+}
+
+// ---------------------------------------------------------------------------
+// Apply modal (review -> confirm -> progress)
+// ---------------------------------------------------------------------------
+function diffRows(items) {
+  return items.map(({ key, value }) => {
+    const s = state.settings.find((x) => x.key === key) || { label: key, type: 'enum', options: [] };
+    const from = s.type === 'flag' ? (s.current ? 'Enabled' : 'Disabled') : labelFor(s, s.current);
+    const to = s.type === 'flag' ? (value ? 'Enabled' : 'Disabled') : labelFor(s, value);
+    return el('div', { class: 'diff-row' }, [
+      el('span', {}, s.label),
+      el('span', {}, [el('span', { class: 'from' }, String(from)), ' → ',
+        el('span', { class: 'to' }, String(to))]),
+    ]);
+  });
+}
+
+let applyContext = null; // { mode:'settings'|'profile', items?, profileId?, save }
+
+function openApplyModal() {
+  const items = pendingItems();
+  if (!items.length) return;
+  applyContext = { mode: 'settings', items, save: $('#save-eeprom').checked };
+  showApplyReview('Review changes', items);
+}
+
+function showApplyReview(title, items) {
+  $('#apply-modal-title').textContent = title;
+  const diff = $('#apply-diff');
+  diff.style.display = '';
+  diff.innerHTML = '';
+  diffRows(items).forEach((r) => diff.append(r));
+  diff.append(el('div', { class: 'muted', style: 'margin-top:10px;font-size:12px' },
+    'Changes are sent to the inverter one at a time, with a short pause between each. '
+    + (applyContext.save ? 'Settings will be saved to EEPROM after applying.' : 'Settings will NOT be persisted to EEPROM.')));
+  $('#apply-progress').style.display = 'none';
+  const confirm = $('#apply-confirm');
+  confirm.style.display = '';
+  confirm.disabled = false;
+  confirm.textContent = 'Apply to inverter';
+  confirm.onclick = doApply;
+  $('#apply-cancel').textContent = 'Cancel';
+  $('#apply-modal').classList.add('open');
+}
+
+async function doApply() {
+  const confirm = $('#apply-confirm');
+  confirm.disabled = true;
+  try {
+    let job;
+    if (applyContext.mode === 'profile') job = await api.applyProfile(applyContext.profileId, applyContext.save);
+    else job = await api.apply(applyContext.items, applyContext.save);
+    state.applyingJobId = job.id;
+    showApplyProgress(job);
+  } catch (e) {
+    alert('Apply failed: ' + e.message);
+    confirm.disabled = false;
+  }
+}
+
+function showApplyProgress(job) {
+  $('#apply-diff').style.display = 'none';
+  const prog = $('#apply-progress');
+  prog.style.display = '';
+  $('#apply-confirm').style.display = 'none';
+  $('#apply-cancel').textContent = 'Close';
+  renderJob(job);
+  pollJob(job.id);
+}
+
+function renderJob(job) {
+  const prog = $('#apply-progress');
+  prog.innerHTML = '';
+  for (const step of job.steps) {
+    const mark = { ok: '✓', failed: '✕', sending: '…', pending: '·' }[step.status] || '·';
+    prog.append(el('div', { class: 'step' }, [
+      el('span', { class: 'st ' + step.status }, mark),
+      el('span', {}, step.label),
+      el('span', { class: 'spacer', style: 'flex:1' }),
+      el('span', { class: 'muted' }, step.response || ''),
+    ]));
+  }
+  if (job.status && job.status !== 'running') {
+    const ok = job.status === 'completed';
+    prog.append(el('div', { class: 'step' }, [
+      el('span', { class: 'st ' + (ok ? 'ok' : 'failed') }, ok ? '✓' : '!'),
+      el('span', {}, ok ? 'All changes applied'
+        + (job.save ? ' and saved to EEPROM.' : '.') : 'Completed with errors — check rows above.'),
+    ]));
+  }
+}
+
+function onJobUpdate(job) {
+  if (job.id === state.applyingJobId) renderJob(job);
+}
+
+async function pollJob(id) {
+  try {
+    const job = await api.job(id);
+    renderJob(job);
+    if (job.status === 'running') return setTimeout(() => pollJob(id), 600);
+    // done: clear pending edits and refresh the view (a settings re-read also
+    // arrives via WS, but don't rely on it).
+    state.pending = {};
+    renderSettings();
+  } catch (e) { /* websocket job updates will still arrive */ }
+}
+
+function closeApplyModal() { $('#apply-modal').classList.remove('open'); state.applyingJobId = null; }
+
+// ---------------------------------------------------------------------------
+// Profiles
+// ---------------------------------------------------------------------------
+async function loadProfiles() {
+  try { const data = await api.profiles(); state.profiles = data.profiles || []; renderProfiles(); }
+  catch (e) { console.warn('profiles load failed', e); }
+}
+
+function renderProfiles() {
+  const list = $('#profile-list');
+  list.innerHTML = '';
+  if (!state.profiles.length) {
+    list.append(el('div', { class: 'empty' }, 'No profiles yet. Create one to apply a set of settings in one click.'));
+    return;
+  }
+  for (const p of state.profiles) {
+    const kvs = Object.entries(p.settings).map(([k, v]) => {
+      const s = state.settings.find((x) => x.key === k);
+      const label = s ? s.label : k;
+      const val = s ? (s.type === 'flag' ? (v ? 'Enabled' : 'Disabled') : labelFor(s, v)) : v;
+      return el('div', { class: 'kv' }, `${label}: ${val}`);
+    });
+    list.append(el('div', { class: 'profile-card' }, [
+      el('h3', {}, p.name),
+      p.description ? el('div', { class: 'desc' }, p.description) : null,
+      ...kvs,
+      el('div', { class: 'actions' }, [
+        el('button', { class: 'btn primary small', onclick: () => applyProfileFlow(p) }, 'Apply'),
+        el('button', { class: 'btn ghost small', onclick: () => openProfileModal(p, false) }, 'Edit'),
+        el('button', { class: 'btn danger small', onclick: () => removeProfile(p) }, 'Delete'),
+      ]),
+    ]));
+  }
+}
+
+function applyProfileFlow(p) {
+  applyContext = { mode: 'profile', profileId: p.id, save: true };
+  const items = Object.entries(p.settings).map(([key, value]) => ({ key, value }));
+  // reflect the EEPROM choice from settings tab checkbox if present
+  applyContext.save = $('#save-eeprom') ? $('#save-eeprom').checked : true;
+  showApplyReview(`Apply profile “${p.name}”`, items);
+}
+
+async function removeProfile(p) {
+  if (!confirm(`Delete profile “${p.name}”?`)) return;
+  try { await api.deleteProfile(p.id); loadProfiles(); }
+  catch (e) { alert('Delete failed: ' + e.message); }
+}
+
+let editingProfileId = null;
+
+function openProfileModal(profile, prefillFromPending) {
+  editingProfileId = profile ? profile.id : null;
+  $('#profile-modal-title').textContent = profile ? 'Edit profile' : 'New profile';
+  $('#profile-name').value = profile ? profile.name : '';
+  $('#profile-desc').value = profile ? profile.description : '';
+
+  // seed selection: existing profile settings, or current pending edits
+  const seed = profile ? profile.settings : (prefillFromPending ? Object.assign({}, state.pending) : {});
+  const editor = $('#profile-settings-editor');
+  editor.innerHTML = '';
+  for (const s of state.settings) {
+    const included = s.key in seed;
+    const chosen = included ? seed[s.key] : s.current;
+    const include = el('input', { type: 'checkbox' });
+    include.checked = included;
+    const control = buildProfileControl(s, chosen);
+    const row = el('div', { class: 'diff-row' }, [
+      el('label', { class: 'inline' }, [include, s.label]),
+      control,
+    ]);
+    control.dataset.key = s.key;
+    include.dataset.key = s.key;
+    editor.append(row);
+  }
+  $('#profile-modal').classList.add('open');
+}
+
+function buildProfileControl(s, chosen) {
+  if (s.type === 'flag') {
+    const sel = el('select');
+    sel.append(el('option', { value: 'true' }, 'Enabled'));
+    sel.append(el('option', { value: 'false' }, 'Disabled'));
+    sel.value = chosen ? 'true' : 'false';
+    sel.dataset.type = 'flag';
+    return sel;
+  } else if (s.type === 'enum') {
+    const sel = el('select');
+    for (const o of s.options) sel.append(el('option', { value: o.value }, o.label));
+    if (chosen != null) sel.value = String(chosen);
+    sel.dataset.type = 'enum';
+    return sel;
+  }
+  const input = el('input', { type: 'number', step: s.step ?? 0.1, value: chosen ?? '' });
+  input.dataset.type = 'number';
+  input.style.maxWidth = '120px';
+  return input;
+}
+
+async function saveProfile() {
+  const name = $('#profile-name').value.trim();
+  if (!name) { alert('Please enter a name.'); return; }
+  const settings = {};
+  $$('#profile-settings-editor .diff-row').forEach((row) => {
+    const inc = row.querySelector('input[type=checkbox]');
+    const ctl = row.querySelector('[data-key]:not([type=checkbox])');
+    if (!inc.checked) return;
+    const key = ctl.dataset.key;
+    let value = ctl.value;
+    if (ctl.dataset.type === 'flag') value = ctl.value === 'true';
+    else if (ctl.dataset.type === 'number') value = Number(ctl.value);
+    settings[key] = value;
+  });
+  if (!Object.keys(settings).length) { alert('Include at least one setting.'); return; }
+  const body = { name, description: $('#profile-desc').value.trim(), settings };
+  try {
+    if (editingProfileId) await api.updateProfile(editingProfileId, body);
+    else await api.createProfile(body);
+    $('#profile-modal').classList.remove('open');
+    loadProfiles();
+  } catch (e) { alert('Save failed: ' + e.message); }
+}
+
+// close modals on backdrop click
+$$('.modal-backdrop').forEach((bk) => bk.addEventListener('click', (e) => {
+  if (e.target === bk) bk.classList.remove('open');
+}));
+
+window.addEventListener('DOMContentLoaded', init);
+
+</script>
+</body>
+</html>

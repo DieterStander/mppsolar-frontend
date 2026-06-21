@@ -1,0 +1,6 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+# The inverter library. On the Raspberry Pi this is already installed
+# (pip install mppsolar). For a self-contained install, the cloned copy in
+# ./mpp-solar can be installed instead:  pip install ./mpp-solar
+mppsolar>=0.16

@@ -1,0 +1,8 @@
+# udev rule to give the service user access to the inverter HID device.
+# Install:
+#   sudo cp 99-mppsolar.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules && sudo udevadm trigger
+#
+# This grants the 'plugdev' group read/write on hidraw nodes. Make sure the
+# service user is in that group:  sudo usermod -aG plugdev pi
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", MODE="0660", GROUP="plugdev"

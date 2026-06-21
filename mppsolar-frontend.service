@@ -1,0 +1,28 @@
+# systemd unit for the Inverter Console.
+#
+# Install:
+#   sudo cp mppsolar-frontend.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now mppsolar-frontend
+#
+# Adjust User/WorkingDirectory/paths to match your install.  The user must have
+# read/write access to the inverter device node (/dev/hidraw0); add the user to
+# the right group or ship the udev rule below.
+[Unit]
+Description=MPP Solar Inverter Console
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/mppsolar-frontend
+Environment=MPPF_PORT=/dev/hidraw0
+Environment=MPPF_HTTP_PORT=8080
+# Uses the venv created by run.sh; or point at a system python with deps installed.
+ExecStart=/home/pi/mppsolar-frontend/.venv/bin/uvicorn backend.app:app --host 0.0.0.0 --port 8080
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

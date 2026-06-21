@@ -87,6 +87,37 @@ MPPF_PORT=test ./run.sh
 
 ---
 
+## Remote access (Tailscale)
+
+By default the server binds to the LAN only (`0.0.0.0:8080`) and has **no
+authentication**, so anyone who can reach the port can change inverter
+settings. That's fine on a trusted home network — but to reach it from outside,
+**do not port-forward it directly.** Use a private VPN instead. Tailscale
+(WireGuard-based) is the simplest option and is light enough for an old Pi.
+
+**Footprint:** the `tailscaled` daemon idles at ~30–50 MB RAM and ~0% CPU.
+On a single-core Pi (Zero / Pi 1) userspace encryption caps bulk throughput,
+but this dashboard moves tiny messages, so you won't notice it. Run Raspberry
+Pi OS **Lite** (no desktop) and the whole stack fits comfortably in 512 MB.
+
+```bash
+# on the Pi
+curl -fsSL https://tailscale.com/install.sh | sh   # auto-detects ARMv6/ARM64
+sudo tailscale up                                   # open the printed URL, log in
+tailscale ip -4                                     # -> 100.x.y.z
+```
+
+Install the Tailscale app on your phone/laptop, sign in with the **same
+account**, then open `http://100.x.y.z:8080` from anywhere — encrypted
+end-to-end, nothing exposed to the public internet. Enable **MagicDNS** in the
+Tailscale admin console to use a name instead: `http://raspberrypi:8080`.
+
+Optional: `sudo tailscale serve --bg 8080` gives a real `https://` URL (and
+`wss://` for the live feed) without a reverse proxy — though on a struggling Pi
+plain `:8080` over the already-encrypted tailnet is lighter.
+
+---
+
 ## Configuration
 
 All settings are environment variables (sensible defaults shown):

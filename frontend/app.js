@@ -249,6 +249,22 @@ function updateFlow(live) {
   document.getElementById('node-load').classList.toggle('inactive', !load);
   document.getElementById('node-battery').classList.toggle('inactive', !conn);
 
+  // live numbers next to each line
+  const numv = (x, dp = 0) => (x == null || isNaN(x)) ? '—' : Number(x).toFixed(dp);
+  const voltv = (x) => (x == null || isNaN(x)) ? '—'
+    : (Math.abs(x) >= 100 ? String(Math.round(x)) : Number(x).toFixed(1));
+  const setVal = (id, text, active, cls) => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = conn ? text : '';
+    e.setAttribute('class', 'flow-val' + (conn ? (active ? ' ' + cls : ' dim') : ''));
+  };
+  const battI = discharging ? v.battery_discharge_current : v.battery_charge_current;
+  setVal('flow-val-grid', `${voltv(v.ac_input_voltage)} V`, grid, 'acc');
+  setVal('flow-val-pv', `${numv(v.pv_input_power)} W · ${voltv(v.pv_input_voltage)} V`, pv, 'solar');
+  setVal('flow-val-load', `${numv(v.ac_output_active_power)} W · ${voltv(v.ac_output_voltage)} V`, load, 'acc');
+  setVal('flow-val-bat', `${numv(battI, 1)} A · ${voltv(v.battery_voltage)} V`, charging || discharging, charging ? 'charge' : 'acc');
+
   const soc = v.battery_capacity;
   document.getElementById('flow-soc').textContent =
     (soc == null || isNaN(soc)) ? '—' : Math.round(soc) + '%';

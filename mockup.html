@@ -157,6 +157,11 @@ main { padding: 20px; max-width: 1280px; margin: 0 auto; }
 .flow-cap.charge { fill: var(--ok); }
 .flow-cap.disch { fill: var(--accent); }
 .flow-soc { font-size: 12px; font-weight: 600; fill: var(--text); }
+.flow-val { font-size: 9px; font-weight: 600; fill: var(--text); font-variant-numeric: tabular-nums; }
+.flow-val.dim { fill: var(--text-dim); opacity: .75; }
+.flow-val.acc { fill: var(--accent); }
+.flow-val.solar { fill: var(--warn); }
+.flow-val.charge { fill: var(--ok); }
 #node-grid, #node-pv, #node-load, #node-battery { transition: opacity .2s; }
 #node-grid.inactive, #node-pv.inactive, #node-load.inactive, #node-battery.inactive { opacity: .3; }
 
@@ -362,6 +367,11 @@ label.inline { display: inline-flex; align-items: center; gap: 7px; color: var(-
             <text x="385" y="92" class="flow-icon" text-anchor="middle">💡</text>
             <text x="385" y="116" class="flow-node-label" text-anchor="middle">Load</text>
           </g>
+          <!-- live values next to each line -->
+          <text id="flow-val-grid" class="flow-val" x="126" y="60" text-anchor="middle"></text>
+          <text id="flow-val-pv" class="flow-val" x="140" y="153" text-anchor="middle"></text>
+          <text id="flow-val-load" class="flow-val" x="303" y="86" text-anchor="middle"></text>
+          <text id="flow-val-bat" class="flow-val" x="224" y="142" text-anchor="start"></text>
         </svg>
         </div>
         <div class="tiles" id="tiles"></div>
@@ -1086,6 +1096,22 @@ function updateFlow(live) {
   document.getElementById('node-grid').classList.toggle('inactive', !grid);
   document.getElementById('node-load').classList.toggle('inactive', !load);
   document.getElementById('node-battery').classList.toggle('inactive', !conn);
+
+  // live numbers next to each line
+  const numv = (x, dp = 0) => (x == null || isNaN(x)) ? '—' : Number(x).toFixed(dp);
+  const voltv = (x) => (x == null || isNaN(x)) ? '—'
+    : (Math.abs(x) >= 100 ? String(Math.round(x)) : Number(x).toFixed(1));
+  const setVal = (id, text, active, cls) => {
+    const e = document.getElementById(id);
+    if (!e) return;
+    e.textContent = conn ? text : '';
+    e.setAttribute('class', 'flow-val' + (conn ? (active ? ' ' + cls : ' dim') : ''));
+  };
+  const battI = discharging ? v.battery_discharge_current : v.battery_charge_current;
+  setVal('flow-val-grid', `${voltv(v.ac_input_voltage)} V`, grid, 'acc');
+  setVal('flow-val-pv', `${numv(v.pv_input_power)} W · ${voltv(v.pv_input_voltage)} V`, pv, 'solar');
+  setVal('flow-val-load', `${numv(v.ac_output_active_power)} W · ${voltv(v.ac_output_voltage)} V`, load, 'acc');
+  setVal('flow-val-bat', `${numv(battI, 1)} A · ${voltv(v.battery_voltage)} V`, charging || discharging, charging ? 'charge' : 'acc');
 
   const soc = v.battery_capacity;
   document.getElementById('flow-soc').textContent =

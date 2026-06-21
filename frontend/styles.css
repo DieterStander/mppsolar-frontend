@@ -150,6 +150,11 @@ main { padding: 20px; max-width: 1280px; margin: 0 auto; }
 .flow-cap.charge { fill: var(--ok); }
 .flow-cap.disch { fill: var(--accent); }
 .flow-soc { font-size: 12px; font-weight: 600; fill: var(--text); }
+.flow-val { font-size: 9px; font-weight: 600; fill: var(--text); font-variant-numeric: tabular-nums; }
+.flow-val.dim { fill: var(--text-dim); opacity: .75; }
+.flow-val.acc { fill: var(--accent); }
+.flow-val.solar { fill: var(--warn); }
+.flow-val.charge { fill: var(--ok); }
 #node-grid, #node-pv, #node-load, #node-battery { transition: opacity .2s; }
 #node-grid.inactive, #node-pv.inactive, #node-load.inactive, #node-battery.inactive { opacity: .3; }
 

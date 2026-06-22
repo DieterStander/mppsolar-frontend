@@ -261,10 +261,13 @@ function updateFlow(live) {
   const discharging = conn && (v.battery_discharge_current || 0) > 0.2;
   const loadOn = conn && ((v.ac_output_active_power || 0) > 2 || f.load_on);
 
-  // PV and grid never mix. grid→inverter represents the utility *charging* the
-  // battery only; the Line-mode load path is the bypass arc (not the inverter),
-  // so inverter→load lights only when the inverter itself feeds the load.
-  const gridCharging = conn && f.ac_charging;
+  // grid→inverter only when the charger settings allow utility charging AND the
+  // battery is actually charging from AC. With "Only Solar" charging (Charger
+  // Source Priority = 03) the grid NEVER feeds the inverter — it only bypasses
+  // to the load. PV and grid never mix, so grid-charging implies not solar.
+  const chargerSrc = (state.settings.find((s) => s.key === 'charger_source_priority') || {}).current;
+  const gridChargeAllowed = chargerSrc == null ? true : chargerSrc !== '03';
+  const gridCharging = conn && gridChargeAllowed && (f.ac_charging || (charging && !f.scc_charging));
   const invToLoad = conn && loadOn && !utilityLoad;
   const gridActive = utilityLoad || gridCharging;
 

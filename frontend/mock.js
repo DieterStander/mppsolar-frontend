@@ -47,13 +47,26 @@
   }
   function liveState(t) {
     const v = genValues(t);
-    const mode = v.battery_discharge_current > 0 ? 'Battery' : 'Line';
+    // demo: a recurring window where the inverter charges from the grid (no sun)
+    // so the grid→inverter path is visible; otherwise it charges from solar.
+    const gridChargeWindow = Math.floor(t / 30) % 4 === 3;
+    if (gridChargeWindow) {
+      v.pv_input_power = 0; v.pv_input_voltage = 0;
+      v.battery_discharge_current = 0;
+      v.battery_charge_current = 14;
+    }
+    const mode = (!gridChargeWindow && v.battery_discharge_current > 0) ? 'Battery' : 'Line';
     return {
       ts: t, connected: true,
       mode,
       values: v,
-      flags: { load_on: true, charging_on: v.battery_charge_current > 0, ac_charging: false,
-               scc_charging: v.pv_input_power > 0, charging_to_float: false },
+      flags: {
+        load_on: true,
+        charging_on: v.battery_charge_current > 0,
+        ac_charging: gridChargeWindow,
+        scc_charging: v.pv_input_power > 0,
+        charging_to_float: false,
+      },
       warnings: [], last_error: null,
     };
   }
